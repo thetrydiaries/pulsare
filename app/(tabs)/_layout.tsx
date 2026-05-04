@@ -1,0 +1,68 @@
+import { Tabs } from 'expo-router';
+import { Colors } from '@/constants/colors';
+import { View, StyleSheet } from 'react-native';
+import Text from '@/components/ui/Text';
+
+function TabIcon({ label, focused }: { label: string; focused: boolean }) {
+  return (
+    <View style={styles.iconWrap}>
+      <Text
+        variant="label"
+        color={focused ? Colors.tealText : Colors.textTertiary}
+        size={11}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+export default function TabsLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: Colors.background,
+          borderTopWidth: 0.5,
+          borderTopColor: Colors.border,
+          height: 64,
+          paddingBottom: 12,
+        },
+        tabBarShowLabel: false,
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon label="today" focused={focused} />,
+          tabBarAccessibilityLabel: 'Today',
+        }}
+      />
+      <Tabs.Screen
+        name="galaxy"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon label="galaxy" focused={focused} />,
+          tabBarAccessibilityLabel: 'Galaxy',
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon label="profile" focused={focused} />,
+          tabBarAccessibilityLabel: 'Profile',
+        }}
+      />
+    </Tabs>
+  );
+}
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
+  },
+});
