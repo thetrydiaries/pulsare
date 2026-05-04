@@ -47,10 +47,17 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="learn"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon label="learn" focused={focused} />,
+          tabBarAccessibilityLabel: 'Learn',
+        }}
+      />
+      {/* Profile is accessed via the settings icon on the home screen, not the tab bar */}
+      <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon label="profile" focused={focused} />,
-          tabBarAccessibilityLabel: 'Profile',
+          href: null,
         }}
       />
     </Tabs>

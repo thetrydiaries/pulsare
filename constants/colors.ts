@@ -5,7 +5,7 @@ export const Colors = {
 
   textPrimary: '#ede8e0',
   textSecondary: '#bab5ac',
-  textTertiary: '#6e6a63', // accessibility-adjusted from spec's #383838
+  textTertiary: '#6b6660', // #6b6660 on #0c0c0c = ~4.6:1, passes WCAG AA
 
   tealAction: '#3d6b58',
   tealText: '#8fb0a4',

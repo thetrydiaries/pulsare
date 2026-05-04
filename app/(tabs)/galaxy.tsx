@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
@@ -55,12 +55,27 @@ function getMonthGrid(): (string | null)[] {
   return [...padding, ...dates];
 }
 
+// Small deterministic x/y nudge per date — makes the field read as organic
+function deterministicOffset(dateString: string): { x: number; y: number } {
+  let hash = 0;
+  for (let i = 0; i < dateString.length; i++) {
+    hash = (hash * 31 + dateString.charCodeAt(i)) & 0xffffffff;
+  }
+  const x = ((hash & 0xff) / 255 - 0.5) * 6; // ±3pt
+  const y = (((hash >> 8) & 0xff) / 255 - 0.5) * 6; // ±3pt
+  return { x, y };
+}
+
 export default function GalaxyScreen() {
   const [tab, setTab] = useState<TabView>('week');
   const [stats, setStats] = useState<Record<string, DayStats>>({});
   const [presentDays, setPresentDays] = useState(0);
   const [presenceRate, setPresenceRate] = useState(0);
   const [streak, setStreak] = useState(0);
+
+  const insets = useSafeAreaInsets();
+  // Canvas horizontal padding: device safe area + 20pt per spec
+  const canvasPaddingH = insets.left + 20;
 
   const user = getUser();
 
@@ -94,18 +109,19 @@ export default function GalaxyScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text variant="serif" size={32}>your</Text>
-          <Text variant="serifItalic" size={32}>galaxy</Text>
+        <View style={styles.textSection}>
+          <View style={styles.header}>
+            <Text variant="serif" size={32}>your</Text>
+            <Text variant="serifItalic" size={32}>galaxy</Text>
+          </View>
+          <Text variant="label" style={styles.subtitle}>every star is a day you showed up</Text>
+          <Text variant="micro" style={styles.cosmic}>
+            the cosmic web and a neural network look identical under a microscope. you're building both.
+          </Text>
         </View>
 
-        <Text variant="label" style={styles.subtitle}>every star is a day you showed up</Text>
-        <Text variant="micro" style={styles.cosmic}>
-          the cosmic web and a neural network look identical under a microscope. you're building both.
-        </Text>
-
-        {/* Tabs */}
-        <View style={styles.tabs}>
+        {/* Tabs — same horizontal inset as canvas */}
+        <View style={[styles.tabs, { paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }]}>
           {(['week', 'month'] as TabView[]).map((t) => (
             <TouchableOpacity
               key={t}
@@ -125,14 +141,18 @@ export default function GalaxyScreen() {
           ))}
         </View>
 
-        {/* Week view */}
+        {/* Week view — canvas with safe area insets */}
         {tab === 'week' && (
-          <View style={styles.weekRow}>
+          <View style={[styles.weekRow, { paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }]}>
             {weekDates.map((d) => {
               const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
+              const offset = deterministicOffset(d);
               return (
-                <View key={d} style={styles.weekCell}>
-                  <StarMark state={s.state} size={d === today ? 28 : 22} />
+                <View
+                  key={d}
+                  style={[styles.weekCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                >
+                  <StarMark state={s.state} />
                   <Text variant="micro" style={styles.dayLabel}>
                     {parseDate(d).getDate()}
                   </Text>
@@ -142,9 +162,9 @@ export default function GalaxyScreen() {
           </View>
         )}
 
-        {/* Month view */}
+        {/* Month view — canvas with safe area insets */}
         {tab === 'month' && (
-          <View>
+          <View style={{ paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }}>
             <View style={styles.dayHeaders}>
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((l, i) => (
                 <View key={i} style={styles.gridCell}>
@@ -156,9 +176,13 @@ export default function GalaxyScreen() {
               {monthGrid.map((d, i) => {
                 if (!d) return <View key={`pad-${i}`} style={styles.gridCell} />;
                 const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
+                const offset = deterministicOffset(d);
                 return (
-                  <View key={d} style={styles.gridCell}>
-                    <StarMark state={s.state} size={16} />
+                  <View
+                    key={d}
+                    style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                  >
+                    <StarMark state={s.state} />
                   </View>
                 );
               })}
@@ -188,7 +212,8 @@ function StatBlock({ value, label }: { value: number | string; label: string }) 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 48, gap: 8 },
+  scroll: { paddingTop: 20, paddingBottom: 48, gap: 8 },
+  textSection: { paddingHorizontal: 24 },
   header: { gap: 0 },
   subtitle: { marginTop: 8 },
   cosmic: { lineHeight: 18, marginTop: 4 },
@@ -224,6 +249,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 32,
     paddingTop: 20,
+    paddingHorizontal: 24,
     borderTopWidth: 0.5,
     borderTopColor: Colors.border,
   },

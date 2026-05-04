@@ -194,7 +194,17 @@ export default function HomeScreen() {
           <Text variant="label">
             {new Date().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
           </Text>
-          <Text variant="label" color={Colors.tealText}>phase 1 · stabilise</Text>
+          <View style={styles.statusRight}>
+            <Text variant="label" color={Colors.tealText}>phase 1 · stabilise</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/profile')}
+              style={styles.settingsBtn}
+              accessibilityRole="button"
+              accessibilityLabel="settings"
+            >
+              <Text variant="label" color={Colors.textTertiary} size={18}>⚙</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Greeting */}
@@ -214,6 +224,15 @@ export default function HomeScreen() {
           blurOnSubmit
           accessibilityLabel="body check — optional"
         />
+
+        {/* Presence block — days present + sleep note, sits above week strip */}
+        <View style={styles.presenceBlock}>
+          <Text variant="serif" size={40}>{presentDays}</Text>
+          <Text variant="label" style={styles.presenceLabel}>days present</Text>
+          <Text variant="label" style={styles.sleepNote}>
+            to protect your {wakeDisplay}, aim to be in bed by {bedtime}.
+          </Text>
+        </View>
 
         {/* Week strip */}
         {weekStats.length === 7 && (
@@ -260,16 +279,6 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Sleep note */}
-        <Text variant="label" style={styles.sleepNote}>
-          to protect your {wakeDisplay}, aim to be in bed by {bedtime}. sleep is where the repair happens.
-        </Text>
-
-        {/* Streak */}
-        <View style={styles.streakBlock}>
-          <Text variant="serif" size={40}>{streakCount}</Text>
-          <Text variant="label" style={styles.streakLabel}>days present</Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -288,6 +297,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
+  },
+  statusRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingsBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   greeting: {
     marginTop: 8,
@@ -315,18 +335,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'lowercase',
   },
-  sleepNote: {
-    marginTop: 20,
-    lineHeight: 18,
-    fontSize: 12,
-  },
-  streakBlock: {
-    marginTop: 32,
-    alignItems: 'flex-start',
+  presenceBlock: {
+    marginTop: 16,
+    marginBottom: 4,
     gap: 2,
   },
-  streakLabel: {
+  presenceLabel: {
     letterSpacing: 0.8,
+  },
+  sleepNote: {
+    lineHeight: 18,
+    fontSize: 12,
+    marginTop: 2,
   },
   reflectionBanner: {
     marginTop: 16,

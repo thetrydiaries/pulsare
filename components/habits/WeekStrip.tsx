@@ -19,7 +19,7 @@ export default function WeekStrip({ days, todayIndex }: Props) {
         <View key={day.date} style={styles.cell}>
           <StarMark
             state={day.state}
-            size={i === todayIndex ? 22 : 18}
+            isToday={i === todayIndex}
           />
           <Text
             variant="micro"

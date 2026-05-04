@@ -200,18 +200,15 @@ Five daily habits — the physiological foundation. Four morning, one evening. T
 **Evening habit:**
 5. **[User's chosen evening anchor]** — personalised label, appears in the evening group
 
-Each habit displays a single micro-explanation line beneath its name in the daily view:
-- *Wake anchor: "your body clock regulates everything else. this is where it starts."*
-- *Water before coffee: "cortisol peaks at wake. caffeine on dehydration amplifies the spike."*
-- *Morning movement: "a signal, not a workout. you're telling your nervous system the day is safe."*
-- *Nervous system reset: "the exhale activates your vagus nerve. two minutes is enough."*
-- *Evening anchor: micro-explanation reflects the chosen habit*
+Habit rows in the daily view display the habit name only — no second line of text beneath. The science and reframes that were previously shown as micro-explanations have moved to the **Learn screen** (see In-app screens → Learn screen), where they have space to actually land.
 
-**Phase 1 sleep note (visible, not tracked):**
-Displayed passively beneath the habit list at all times:
-> *"To protect your [wake time], aim to be in bed by [calculated: wake time minus 8.5hrs]. Sleep is where the repair happens."*
+Each habit row carries a barely-visible 2pt dot (tertiary colour) to the right of the name as a passive affordance — a signal that more context exists in Learn. No label, no tooltip.
 
-Informational only. Not a tracked habit. Not a metric. Just present.
+**Phase 1 sleep note:**
+Displayed as tertiary text directly beneath the "days present" label in the presence block (above the week strip):
+> *"to protect your [wake time], aim to be in bed by [calculated: wake time minus 8.5hrs]."*
+
+Not tracked. Not a metric. Always visible in the presence block.
 
 **Presence threshold for Phase 1:** 3 or more of 5 habits complete = a present day.
 
@@ -282,11 +279,16 @@ Each day is a star. The density and brightness of stars across the view reflects
 
 This is not a score. There is no pass or fail. The metaphor is the cosmic web — the large-scale structure of the universe, which looks remarkably similar to a neural network under a microscope. The user is literally watching their neural pathways rebuild, represented as a galaxy forming. This connection should appear quietly in the onboarding and in the galaxy screen header — one line, not a lecture.
 
-**Star states — four only:**
-- **Full day** (presence threshold met) — solid star, full opacity (~0.9)
-- **Partial day** (at least 1 habit complete, below threshold) — same star shape, half opacity (~0.45)
-- **Missed day** — ghost star, barely visible (~0.06). Not an X. Not a gap. Just barely there.
-- **Return day** (first day back after 2+ missed) — slightly larger star, teal tint. Distinct but not celebratory.
+**Star states — four states, layered size + opacity for depth:**
+- **Full day** (presence threshold met) — 24pt, opacity 0.9. Foreground.
+- **Partial day** (at least 1 habit complete, below threshold) — 18pt, opacity 0.45. Mid-field.
+- **Missed day** — 12pt, opacity 0.06. Background presence. Not an X. Not a gap. Just barely there.
+- **Return day** (first day back after 2+ missed) — 26pt, teal tint (`#8fb0a4`), opacity 0.9. Distinct but not celebratory.
+- **Future day** (placeholder, not a state) — 10pt, opacity 0.04. Not interactive.
+
+Size and opacity working together create perceived depth — foreground stars (large, bright), mid-field (medium, moderate), background (small, faint). This is what makes the galaxy read as dimensional rather than a flat grid.
+
+**Today's star (week strip + home screen only):** renders at 1.2× its state size as a "you are here" marker. Does **not** apply in the full galaxy view.
 
 **Star assets:**
 Hand-drawn in Procreate with pencil brush. A gestural four-point star shape — not a perfect geometric star, not a clip-art asterisk. Four assets × three density variants = 12 PNG files total. All PNGs are white (`#ffffff`) on a transparent background — colour, tint, and opacity are applied by the app at render time, never baked into the files.
@@ -310,13 +312,13 @@ Asset files live in `/assets/stars/`:
 
 Render logic:
 
-| State | Asset | Opacity | Tint |
-|-------|-------|---------|------|
-| Full day | `star-full` | 0.9 | none |
-| Partial day | `star-partial` | 0.45 | none |
-| Missed day | `star-ghost` | 0.06 | none |
-| Return day | `star-return` | 0.9 | `#8fb0a4` |
-| Future day (widget only) | none | — | hollow outline at 0.08 |
+| State | Asset | Size | Opacity | Tint |
+|-------|-------|------|---------|------|
+| Full day | `star-full` | 24pt | 0.9 | none |
+| Partial day | `star-partial` | 18pt | 0.45 | none |
+| Missed day | `star-ghost` | 12pt | 0.06 | none |
+| Return day | `star-return` | 26pt | 0.9 | `#8fb0a4` |
+| Future day | `star-ghost` (reused) | 10pt | 0.04 | none — hollow SVG outline if PNG not available |
 
 **Asset fallback:** If PNG files are not present in `/assets/stars/`, render a four-point SVG star path at the matching opacity values above. Apply `#8fb0a4` tint to the return-day SVG. In code, set `STAR_PNGS_READY = true` in `components/galaxy/StarMark.tsx` once all 12 files are in place — the component switches from SVG to PNG automatically.
 
@@ -366,24 +368,33 @@ Two small widgets and one wide widget. All share the same design system as the a
 ## In-app screens
 
 ### 1. Home screen — daily check-in
-- Status bar: time (left) and current phase label (right) — *"phase 1 · stabilise"*
-- Greeting block: date in faintest tracking text, then large serif greeting — *"good morning, [Name]."* — name in italic
-- Interoceptive prompt: *"one word — how does your body feel?"* — tap-to-type inline text field, visually minimal, never required. If entered, string is stored against today's date. If skipped, nothing is stored for that day. No prompt, no empty state indicator.
-- Week strip: seven star marks (Mon–Sun) with day letters beneath. Today's star is slightly larger.
+- Status bar: date (left), phase label + settings icon ⚙ (right). Settings icon navigates to the profile screen. ≥44×44pt tap target, `accessibilityLabel: "settings"`.
+- Greeting block: large serif — *"good morning, [Name]."* — name in italic
+- Interoceptive prompt: *"one word — how does your body feel?"* — tap-to-type inline text field, visually minimal, never required. If entered, stored against today's date.
+- **Presence block** — sits directly beneath the interoceptive prompt, above the week strip:
+  - Days present count in Playfair Display 400 (same size as the greeting)
+  - Label beneath: "days present" in Outfit 300, tertiary text colour
+  - Sleep note beneath the label in tertiary text: *"to protect your [wake time], aim to be in bed by [calculated time]."*
+  - No border, no card surface. Open layout, same horizontal padding as the greeting.
+- Week strip: seven star marks (Mon–Sun) with day letters beneath. Today's star renders at 1.2× its state size.
 - Habit groups: morning and evening, with time-aware opacity logic as described above
-- Each habit row: habit name (full label) + micro-explanation in smaller, lighter text beneath + 44px minimum tap target circle on the right
+- Each habit row: habit name in Outfit 400 (secondary text colour) + 44pt minimum tap target circle on the right. A barely-visible 2pt tertiary-colour dot sits to the right of the name as a passive signal that science context lives in Learn. No second line of text.
 - Completion state: circle fills, name colour shifts to muted teal, quiet tick appears. No animation fanfare.
-- Bottom of screen: streak number in large personal serif + "days present" label + sleep note in faintest text
-- Navigation: three-item bottom nav — today / galaxy / profile
+- Bottom of screen ends with the last habit group. No persistent element at the very bottom — the navigation bar handles that zone.
+- Navigation: three-item bottom nav — today / galaxy / learn
 
 ### 2. Galaxy screen
 - Header: *"your"* then *"galaxy"* in italic personal serif on next line
 - Subtitle: *"every star is a day you showed up"*
 - Cosmic web line beneath subtitle
-- Tab row: week / month / year — minimal, text only, active tab underlined in teal
-- Star canvas: renders the selected view
+- Tab row: week / month — minimal, text only, active tab underlined in teal. (Year view is Build Phase 2.)
+- **Safe area:** the star canvas container and tab row apply `paddingHorizontal: 20` plus the device's horizontal safe area inset via `useSafeAreaInsets()` from `react-native-safe-area-context`. This applies at all zoom levels. Do not clip the canvas to the screen edge.
+- **Star canvas — MVP rendering (Build Phase 1):** Absolutely positioned `<Image>` components inside a `<View>` with `flexWrap`. No Skia, no SVG canvas, no Reanimated canvas. Week and month views are sufficient for Build Phase 1.
+  - Each star gets a small deterministic x/y nudge seeded from its date string (±3pt, no external library). This makes the field read as organic without jitter between renders.
+  - Week view: `flexDirection: 'row'`, `justifyContent: 'space-between'`. Month view: `flexDirection: 'row'`, `flexWrap: 'wrap'`, fixed cell width of `(screenWidth - insets - 40) / 7`, spacer Views for leading days.
+  - Star sizes come from `STATE_CONFIG` in `StarMark.tsx` — not passed as props from the galaxy screen. No `isToday` applied in the galaxy view.
 - Stats row beneath canvas: three numbers (days present / presence rate / streak)
-- Navigation: same three-item bottom nav
+- Navigation: same three-item bottom nav (today / galaxy / learn)
 
 ### 3. Fall-off re-entry screen
 - Appears automatically on app open after 2+ consecutive days of no activity
@@ -420,8 +431,33 @@ Days where the user skipped the body-check prompt display as "—" in this list.
 
 Responses saved as private notes. No sharing. No analytics. Readable as a scrollable log.
 
-### 5. Profile screen
-Accessible from bottom navigation (third tab). Simple, functional, no headers. Three sections, visually separated by 1px borders only.
+### 5. Learn screen
+Accessible from the bottom nav (third tab, replacing profile). Top-level screen — no back navigation required.
+
+**Header:** "learn" in Playfair Display 400 italic, primary text colour.
+
+**Two sections, separated by a single 1px `#1c1c1c` rule:**
+
+**Section 1 — Your habits**
+A scrollable list of the user's active habits. Each entry expands on tap (accordion). Collapsed: habit name in Outfit 400. Expanded reveals:
+- **The reframe** — one line, Outfit 400, secondary text colour. Motivational. (e.g. *"this isn't a workout — it's a signal"*)
+- **The science** — one short paragraph, Outfit 300, tertiary text colour (`#6b6660`). Mechanistic. (e.g. *"low-intensity morning movement resets cortisol rhythm..."*)
+
+Only one row open at a time. Tapping an open row collapses it. 200ms opacity fade on expanded content (`prefers-reduced-motion`: fade only, no transform). Minimum 44pt tap target on each row header.
+
+**Section 2 — This week**
+A single card (dark surface `#141414`, 1px border `#1c1c1c`, 16px corner radius). Displays one neuroscience concept per week, phase-gated and sequenced. Refreshes on Monday of each week.
+
+Card anatomy:
+- Concept title in Playfair Display 400, primary text colour
+- One-sentence definition in Outfit 300, secondary text colour
+- 3–4 paragraph body in Outfit 300, secondary text colour, line height 1.6
+- Footer in tertiary text: *"new concept in [N] days"*
+
+Phase 1 concept sequence (weeks 1–3): circadian rhythm → cortisol awakening response → neuroplasticity. Full content in `app/(tabs)/learn.tsx`.
+
+### 6. Profile screen
+Accessible via the settings icon ⚙ in the top-right of the home screen status bar — **not** from the bottom nav. Low-frequency action; does not warrant a tab. Simple, functional, no headers. Three sections, visually separated by 1px borders only.
 
 **Your anchors**
 - Wake time — editable (opens time picker)
@@ -439,7 +475,7 @@ Accessible from bottom navigation (third tab). Simple, functional, no headers. T
 
 No reset option in v1. No account management. Nothing that adds cognitive load.
 
-### 6. Phase progress screen
+### 7. Phase progress screen
 **Deprioritised for Build Phase 1.** Not required in v1. The phase label in the home screen status bar and the profile screen phase display provide sufficient orientation. Build Phase 2 item.
 
 ---
@@ -509,13 +545,13 @@ Warm and direct. Never nagging. Never gamified.
 - **Borders:** #1c1c1c — 0.5px only. Barely there.
 - **Primary text:** #ede8e0 — warm off-white. Never pure white.
 - **Secondary text:** #bab5ac — muted warm grey
-- **Tertiary text / micro-explanations:** #383838 (spec value) → implemented as **#6e6a63** in `constants/colors.ts` — accessibility-adjusted for WCAG AA compliance against the #0c0c0c background
+- **Tertiary text:** `#6b6660` — `#6b6660` on `#0c0c0c` = ~4.6:1, passes WCAG AA. Used exclusively for the sleep note on the home screen and science text in the Learn accordion. Previous value `#383838` (~2.3:1) and interim `#6e6a63` are both superseded.
 - **Teal (action / completion):** #3d6b58 for borders and fills, #8fb0a4 for active text and labels
 - **Amber (nudge state):** #c4873a — used for never-miss-twice highlight. Warm, not alarming.
 - **Coral (fall-off):** reserved — not used in v1
 
 ### Accessibility
-All text must meet WCAG AA contrast ratio (4.5:1 minimum) against the background. Tertiary text (#383838 on #0c0c0c) sits at the edge of this threshold and should be used only for micro-explanations at larger relative sizes. Test all colours before finalising.
+All text must meet WCAG AA contrast ratio (4.5:1 minimum) against the background. Tertiary text (`#6b6660` on `#0c0c0c` = ~4.6:1) passes this threshold. Tertiary text is now used only for the sleep note (home screen) and the science text inside the Learn accordion — both low-frequency, low-size contexts. Confirm with a contrast checker before shipping.
 
 Minimum tap target size: **44×44px** on every tappable element including habit rows, navigation items, and widget targets.
 
@@ -704,17 +740,21 @@ Not required for v1. Design the local storage schema with sync in mind — flat 
 
 ## Build phases
 
-### Build Phase 1 — Core ✅ COMPLETE
+### Build Phase 1 — Core ✅ COMPLETE (v5 design amendments applied)
 
 **Built and working:**
 - ✅ Onboarding — all 12 screens (`app/onboarding/`)
-- ✅ Home screen — habit groups, time-aware evening opacity (30% before wind-down time), body-check prompt, week strip, Sunday reflection banner, sleep note, streak count (`app/(tabs)/index.tsx`)
+- ✅ Home screen — habit groups, time-aware evening opacity, body-check prompt, **presence block** (days present + sleep note, above week strip), week strip, Sunday reflection banner, settings icon navigating to profile (`app/(tabs)/index.tsx`)
+- ✅ Habit rows — name only (no micro-explanation), 2pt learn dot affordance, 44pt tap target (`components/habits/HabitRow.tsx`)
 - ✅ Habit completion with 3am day boundary logic (`lib/dayBoundary.ts`)
-- ✅ Galaxy screen — week and month views (`app/(tabs)/galaxy.tsx`)
+- ✅ Galaxy screen — week and month views, `useSafeAreaInsets()` on canvas, deterministic star offsets, state-canonical star sizes (`app/(tabs)/galaxy.tsx`)
+- ✅ Star sizing — explicit pt sizes per state in `STATE_CONFIG`, `isToday` 1.2× multiplier for week strip only (`components/galaxy/StarMark.tsx`)
 - ✅ Fall-off detection and re-entry screen (`app/falloff.tsx`, `lib/presence.ts`)
 - ✅ Never-miss-twice nudge — notification scheduled + amber highlight prop passed to `HabitRow`
 - ✅ Weekly reflection screen — Sunday-keyed, Phase 1 questions, body-check word mirror (`app/reflection.tsx`)
-- ✅ Profile screen — wake time, evening habit, notification times, phase display, fine print (`app/(tabs)/profile.tsx`)
+- ✅ **Learn screen** — habit accordion (one-at-a-time, 200ms fade), weekly neuroscience concept card, phase-sequenced concept library weeks 1–3 (`app/(tabs)/learn.tsx`)
+- ✅ **Bottom nav: today / galaxy / learn** — profile moved to settings icon on home screen
+- ✅ Profile screen — wake time, evening habit, notification times, phase display, fine print — accessible via ⚙ icon (`app/(tabs)/profile.tsx`)
 - ✅ Local notifications — morning anchor, movement, wind-down, never-miss-twice nudge, fall-off (`lib/notifications.ts`)
 - ✅ Phase 1 habits and presence logic (`lib/habits.ts`, `lib/presence.ts`)
 - ✅ Full storage schema (`lib/storage.ts`) — AsyncStorage-backed in-memory cache for Expo Go; MMKV for native builds
@@ -776,4 +816,6 @@ Every other interaction after that should feel like almost nothing.
 
 ---
 
-*Build prompt v5 — reflects current built state as of 2026-05-04. Changes from v4: Expo SDK updated to 54 (React Native 0.81.5, React 19.1.0, New Architecture enabled); storage section updated to document two-mode strategy (AsyncStorage + in-memory cache for Expo Go, MMKV for native builds); textTertiary colour noted as accessibility-adjusted to #6e6a63 in implementation; Build Phase 1 marked complete with full item list and known minor gaps documented; Build Phase 1 "not in scope" list updated to reflect confirmed deferred items.*
+*Build prompt v5 — reflects current built state as of 2026-05-04. Changes from v4: Expo SDK updated to 54 (React Native 0.81.5, React 19.1.0, New Architecture enabled); storage section updated to document two-mode strategy (AsyncStorage + in-memory cache for Expo Go, MMKV for native builds); Build Phase 1 marked complete.*
+
+*Design amendments v4 → v5 (applied 2026-05-04): tertiary text corrected to `#6b6660` (WCAG AA); galaxy canvas safe area insets specified (`useSafeAreaInsets()` + 20pt); presence block (days present + sleep note) repositioned above week strip; star sizing made explicit per state (24/18/12/26/10pt) with `isToday` 1.2× multiplier for week strip only; micro-explanations removed from habit rows (2pt dot affordance added); Learn tab added to bottom nav replacing profile; profile moved to settings icon ⚙ on home screen; Learn screen fully built with habit accordion and weekly concept card; galaxy MVP rendering spec applied (deterministic offset, no Skia, state-canonical sizes).*

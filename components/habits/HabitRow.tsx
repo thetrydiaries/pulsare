@@ -49,18 +49,17 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle }: 
       accessibilityRole="none"
     >
       <View style={styles.labelBlock}>
-        <Text
-          variant="body"
-          color={completed ? Colors.tealText : Colors.textPrimary}
-          style={styles.label}
-        >
-          {habit.label}
-        </Text>
-        {habit.microExplanation ? (
-          <Text variant="label" style={styles.micro}>
-            {habit.microExplanation}
+        <View style={styles.labelRow}>
+          <Text
+            variant="body"
+            color={completed ? Colors.tealText : Colors.textPrimary}
+            style={styles.label}
+          >
+            {habit.label}
           </Text>
-        ) : null}
+          {/* Passive signal that more context lives in Learn */}
+          <View style={styles.learnDot} />
+        </View>
       </View>
 
       <TouchableOpacity
@@ -108,13 +107,21 @@ const styles = StyleSheet.create({
   labelBlock: {
     flex: 1,
     paddingRight: 16,
-    gap: 3,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   label: {
     fontSize: 15,
   },
-  micro: {
-    lineHeight: 16,
+  learnDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: Colors.textTertiary,
+    opacity: 0.6,
   },
   checkTarget: {
     width: 44,
