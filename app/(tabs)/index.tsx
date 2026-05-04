@@ -14,7 +14,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import HabitRow from '@/components/habits/HabitRow';
 import WeekStrip from '@/components/habits/WeekStrip';
-import { getUser, getLogEntry, updateLogEntry } from '@/lib/storage';
+import { getUser, getLogEntry, updateLogEntry, getPersonalisedCopy } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
 import {
   getLogicalDate,
@@ -22,6 +22,7 @@ import {
   parseDate,
   timeIsAtOrAfter,
   currentTime,
+  subtractHours,
 } from '@/lib/dayBoundary';
 import {
   getDayStats,
@@ -36,6 +37,7 @@ import {
   scheduleNeverMissTwiceNudge,
   scheduleFallOffNotification,
 } from '@/lib/notifications';
+import { daysSinceStart } from '@/lib/dayBoundary';
 import type { Habit, DayStats } from '@/types';
 
 function getGreeting(): string {
@@ -43,6 +45,15 @@ function getGreeting(): string {
   if (h < 12) return 'good morning';
   if (h < 17) return 'good afternoon';
   return 'good evening';
+}
+
+function getPersonalisedGreeting(userName: string, startDate: string): string {
+  const copy = getPersonalisedCopy();
+  if (copy?.greetingVariations?.length) {
+    const idx = (daysSinceStart(startDate) - 1) % copy.greetingVariations.length;
+    return copy.greetingVariations[idx] ?? `${getGreeting()}, ${userName}.`;
+  }
+  return `${getGreeting()}, ${userName}.`;
 }
 
 function getWeekDates(): string[] {
@@ -60,6 +71,13 @@ function getWeekDates(): string[] {
 function getTodayIndex(weekDates: string[]): number {
   const today = getLogicalDate();
   return weekDates.indexOf(today);
+}
+
+function formatWakeTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  const dh = h % 12 === 0 ? 12 : h % 12;
+  return `${dh}:${m.toString().padStart(2, '0')}${ampm}`;
 }
 
 export default function HomeScreen() {
@@ -81,7 +99,6 @@ export default function HomeScreen() {
   const load = useCallback(() => {
     if (!user) return;
 
-    // Fall-off check — redirect if needed
     if (isFallOff()) {
       router.replace('/falloff');
       return;
@@ -100,17 +117,12 @@ export default function HomeScreen() {
     recalculateStreak();
     setStreakCount(getStreakData().currentStreak);
 
-    // Time-aware evening opacity
     const windDown = user.notificationTimes.windDown;
     setIsEveningTime(timeIsAtOrAfter(currentTime(), windDown));
 
-    // Never-miss-twice nudge
     setShowNudge(isMissedOneDayOnly());
-
-    // Sunday reflection prompt
     setIsSunday(new Date().getDay() === 0);
 
-    // Schedule nudge/falloff notifications based on state
     if (isMissedOneDayOnly()) {
       scheduleNeverMissTwiceNudge(user);
     }
@@ -120,7 +132,6 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
-  // Refresh on foreground and every 5 minutes
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       if (appState.current.match(/inactive|background/) && next === 'active') {
@@ -138,18 +149,9 @@ export default function HomeScreen() {
   function handleToggle(id: string) {
     const next = { ...completed, [id]: !completed[id] };
     setCompleted(next);
-
-    const entry = getLogEntry(today) ?? {
-      habits: {},
-      bodyCheckWord: null,
-      isReturnDay: false,
-      dayBoundaryApplied: false,
-    };
     updateLogEntry(today, { habits: next });
     recalculateStreak();
     setStreakCount(getStreakData().currentStreak);
-
-    // Update week strip
     const stats = getRangeStats(weekDates);
     setWeekStats(stats);
   }
@@ -164,23 +166,10 @@ export default function HomeScreen() {
   const morning = habits.filter((h) => h.group === 'morning');
   const evening = habits.filter((h) => h.group === 'evening');
 
-  const bedtime = (() => {
-    const [wh, wm] = user.wakeTime.split(':').map(Number);
-    const totalMin = wh * 60 + wm - 8.5 * 60;
-    const bh = Math.floor(((totalMin % (24 * 60)) + 24 * 60) % (24 * 60) / 60);
-    const bm = Math.floor(totalMin % 60);
-    const ampm = bh >= 12 ? 'pm' : 'am';
-    const dh = bh % 12 === 0 ? 12 : bh % 12;
-    return `${dh}:${bm.toString().padStart(2, '0')}${ampm}`;
-  })();
-
+  const wakeDisplay = formatWakeTime(user.wakeTime);
+  const bedtimeDisplay = formatWakeTime(subtractHours(user.wakeTime, 8.5));
   const presentDays = getPresentDaysCount(user.startDate);
-  const wakeDisplay = (() => {
-    const [h, m] = user.wakeTime.split(':').map(Number);
-    const ampm = h >= 12 ? 'pm' : 'am';
-    const dh = h % 12 === 0 ? 12 : h % 12;
-    return `${dh}:${m.toString().padStart(2, '0')}${ampm}`;
-  })();
+  const greeting = getPersonalisedGreeting(user.name, user.startDate);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -209,8 +198,7 @@ export default function HomeScreen() {
 
         {/* Greeting */}
         <Text variant="serif" size={26} style={styles.greeting}>
-          {getGreeting()},{' '}
-          <Text variant="serifItalic" size={26}>{user.name}</Text>.
+          {greeting}
         </Text>
 
         {/* Body check */}
@@ -225,13 +213,10 @@ export default function HomeScreen() {
           accessibilityLabel="body check — optional"
         />
 
-        {/* Presence block — days present + sleep note, sits above week strip */}
+        {/* Presence block */}
         <View style={styles.presenceBlock}>
           <Text variant="serif" size={40}>{presentDays}</Text>
           <Text variant="label" style={styles.presenceLabel}>days present</Text>
-          <Text variant="label" style={styles.sleepNote}>
-            to protect your {wakeDisplay}, aim to be in bed by {bedtime}.
-          </Text>
         </View>
 
         {/* Week strip */}
@@ -279,6 +264,10 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {/* Sleep note — bottom of scroll, above nav */}
+        <Text variant="label" style={styles.sleepNote}>
+          to keep your {wakeDisplay} anchor, aim to be in bed by {bedtimeDisplay}. sleep is where the repair happens.
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -324,17 +313,6 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
     marginBottom: 4,
   },
-  group: {
-    marginTop: 16,
-  },
-  groupDimmed: {
-    opacity: 0.3,
-  },
-  groupLabel: {
-    marginBottom: 4,
-    letterSpacing: 1.2,
-    textTransform: 'lowercase',
-  },
   presenceBlock: {
     marginTop: 16,
     marginBottom: 4,
@@ -343,10 +321,16 @@ const styles = StyleSheet.create({
   presenceLabel: {
     letterSpacing: 0.8,
   },
-  sleepNote: {
-    lineHeight: 18,
-    fontSize: 12,
-    marginTop: 2,
+  group: {
+    marginTop: 20,
+  },
+  groupDimmed: {
+    opacity: 0.3,
+  },
+  groupLabel: {
+    marginBottom: 8,
+    letterSpacing: 1.2,
+    textTransform: 'lowercase',
   },
   reflectionBanner: {
     marginTop: 16,
@@ -359,5 +343,12 @@ const styles = StyleSheet.create({
   },
   reflectionSub: {
     fontSize: 11,
+  },
+  sleepNote: {
+    marginTop: 24,
+    lineHeight: 18,
+    fontSize: 12,
+    color: Colors.textTertiary,
+    fontFamily: 'Outfit_300Light',
   },
 });

@@ -35,7 +35,7 @@ export default function NameScreen() {
 
           <View style={styles.content}>
             <Text variant="serif" size={28} style={styles.question}>
-              What do you want me to call you?
+              what do you want me to call you?
             </Text>
 
             <TextInput

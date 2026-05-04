@@ -62,12 +62,13 @@ export function dateRangeFromStart(startDate: string): string[] {
   return dates;
 }
 
-/** Add N minutes to an HH:MM string, returns HH:MM. */
+/** Add N minutes to an HH:MM string, returns HH:MM. Handles negative totals correctly. */
 export function addMinutes(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number);
   const total = h * 60 + m + minutes;
-  const newH = Math.floor(total / 60) % 24;
-  const newM = total % 60;
+  const normalized = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  const newH = Math.floor(normalized / 60);
+  const newM = normalized % 60;
   return `${pad(newH)}:${pad(newM)}`;
 }
 

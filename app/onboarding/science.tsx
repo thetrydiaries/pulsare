@@ -23,7 +23,7 @@ export default function ScienceScreen() {
           </Text>
 
           <Text variant="body" color={Colors.textSecondary} style={styles.body}>
-            Like a pulsar, the most stable signal in the known universe, it's consistency that does the work. We add slowly. We never punish a missed day. Small, regular signals to your body are more powerful than big efforts followed by crashes.
+            like a pulsar, the most stable signal in the known universe, it's consistency that does the work. we add slowly. we never punish a missed day. small, regular signals to your body are more powerful than big efforts followed by crashes.
           </Text>
         </ScrollView>
 

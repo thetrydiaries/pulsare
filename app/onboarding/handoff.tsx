@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { setUser, setOnboardingComplete } from '@/lib/storage';
 import { initPhase1Habits } from '@/lib/habits';
 import { scheduleAllNotifications, requestPermissions } from '@/lib/notifications';
 import { formatDate, addMinutes, subtractHours } from '@/lib/dayBoundary';
+import { generatePersonalisedCopy } from '@/lib/personalisedCopy';
 import type { User, EveningHabitType } from '@/types';
 
 function formatTime(hhmm: string): string {
@@ -60,6 +61,9 @@ export default function HandoffScreen() {
     }
 
     router.replace('/(tabs)');
+
+    // generate personalised copy silently in background after navigation
+    generatePersonalisedCopy();
   }
 
   return (
@@ -72,11 +76,11 @@ export default function HandoffScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={28} style={styles.headline}>
-            That's everything,{' '}
+            that's everything,{' '}
             <Text variant="serifItalic" size={28}>{name}</Text>.
           </Text>
           <Text variant="body" color={Colors.textSecondary} style={styles.sub}>
-            Your Reset starts now.
+            your reset starts now.
           </Text>
 
           <View style={styles.summary}>
@@ -88,12 +92,11 @@ export default function HandoffScreen() {
           </View>
 
           <Text variant="label" style={styles.bedNote}>
-            To protect your {formatTime(wakeTime)}, aim to be in bed by {formatTime(bedtime)}.
-            Sleep is where the repair happens.
+            to keep your {formatTime(wakeTime)} anchor, aim to be in bed by {formatTime(bedtime)}. sleep is where the repair happens.
           </Text>
         </View>
 
-        <Button label="I'm ready" onPress={handleReady} />
+        <Button label="i'm ready" onPress={handleReady} />
       </ScrollView>
     </SafeAreaView>
   );

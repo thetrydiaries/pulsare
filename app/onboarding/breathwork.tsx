@@ -11,12 +11,16 @@ import { storage } from '@/lib/storage';
 export default function BreathworkScreen() {
   const [experience, setExperience] = useState<'yes' | 'no' | null>(null);
   const [practice, setPractice] = useState('');
+  const [userLabel, setUserLabel] = useState('');
 
   function handleNext() {
     if (!experience) return;
     storage.set('onboarding.breathworkExperience', experience);
     if (experience === 'yes') {
       storage.set('onboarding.breathworkPractice', practice.trim() || '');
+    }
+    if (userLabel.trim()) {
+      storage.set('onboarding.breathworkUserLabel', userLabel.trim());
     }
     router.push('/onboarding/evening');
   }
@@ -32,7 +36,7 @@ export default function BreathworkScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
-            Have you tried any breathwork before?
+            have you tried any breathwork before?
           </Text>
 
           <View style={styles.options}>
@@ -48,7 +52,7 @@ export default function BreathworkScreen() {
                   variant="body"
                   color={experience === opt ? Colors.tealText : Colors.textSecondary}
                 >
-                  {opt === 'yes' ? 'Yes, I know what I\'m doing' : 'No — show me something simple'}
+                  {opt === 'yes' ? "yes, i know what i'm doing" : 'no — show me something simple'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -57,10 +61,10 @@ export default function BreathworkScreen() {
           {experience === 'no' && (
             <View style={styles.explainer}>
               <Text variant="body" color={Colors.textSecondary} style={styles.explainerText}>
-                We'll use something called a physiological sigh. Two short inhales through the nose, then one long exhale through the mouth. That's it. Two minutes.
+                we'll use something called a physiological sigh. two short inhales through the nose, then one long exhale through the mouth. that's it. two minutes.
               </Text>
               <Text variant="body" color={Colors.textSecondary} style={styles.explainerText}>
-                It's the fastest known way to activate your parasympathetic nervous system — faster than meditation, faster than walking. You'll be reminded once a day.
+                it's the fastest known way to activate your parasympathetic nervous system — faster than meditation, faster than walking. you'll be reminded once a day.
               </Text>
             </View>
           )}
@@ -68,7 +72,7 @@ export default function BreathworkScreen() {
           {experience === 'yes' && (
             <View style={styles.practiceBlock}>
               <Text variant="label" style={styles.practiceLabel}>
-                What do you use? (optional)
+                what do you use? (optional)
               </Text>
               <TextInput
                 style={styles.input}
@@ -76,9 +80,26 @@ export default function BreathworkScreen() {
                 placeholderTextColor={Colors.textTertiary}
                 value={practice}
                 onChangeText={setPractice}
+                returnKeyType="next"
+                accessibilityLabel="describe your breathwork practice"
+              />
+            </View>
+          )}
+
+          {experience !== null && (
+            <View style={styles.labelBlock}>
+              <Text variant="label" style={styles.labelHint}>
+                what do you call this?
+              </Text>
+              <TextInput
+                style={styles.labelInput}
+                placeholder="nervous system reset"
+                placeholderTextColor={Colors.textTertiary}
+                value={userLabel}
+                onChangeText={setUserLabel}
                 returnKeyType="done"
                 onSubmitEditing={handleNext}
-                accessibilityLabel="describe your breathwork practice"
+                accessibilityLabel="what do you call this habit"
               />
             </View>
           )}
@@ -127,6 +148,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
     paddingVertical: 12,
+  },
+  labelBlock: { gap: 6 },
+  labelHint: {
+    color: Colors.textTertiary,
+    fontSize: 12,
+  },
+  labelInput: {
+    fontFamily: 'Outfit_300Light',
+    fontSize: 14,
+    color: Colors.textPrimary,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+    paddingVertical: 10,
   },
   button: { marginTop: 8 },
 });

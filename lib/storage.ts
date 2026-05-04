@@ -5,6 +5,7 @@ import type {
   HabitLogEntry,
   StreakData,
   WeeklyReflection,
+  PersonalisedCopy,
 } from '@/types';
 
 // ─── In-memory cache (keeps the synchronous API intact) ─────────────────────
@@ -175,3 +176,23 @@ export function getAllReflectionDates(): string[] {
 }
 
 export { remove };
+
+// ─── Personalised copy ───────────────────────────────────────────────────────
+
+export function getPersonalisedCopy(): PersonalisedCopy | null {
+  return get<PersonalisedCopy>('personalisedCopy');
+}
+
+export function setPersonalisedCopy(copy: PersonalisedCopy): void {
+  set('personalisedCopy', copy);
+}
+
+// ─── Dev / testing ───────────────────────────────────────────────────────────
+
+export async function clearAllData(): Promise<void> {
+  const keys = await AsyncStorage.getAllKeys();
+  await AsyncStorage.multiRemove(keys as string[]);
+  for (const key of Object.keys(memCache)) {
+    delete memCache[key];
+  }
+}

@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import TimePicker from '@/components/ui/TimePicker';
-import { getUser, updateUser } from '@/lib/storage';
+import { getUser, updateUser, clearAllData } from '@/lib/storage';
 import { scheduleAllNotifications } from '@/lib/notifications';
 import type { User } from '@/types';
 import Constants from 'expo-constants';
@@ -157,6 +157,32 @@ export default function ProfileScreen() {
             <Text variant="micro" style={styles.version}>
               v{Constants.expoConfig?.version ?? '1.0.0'}
             </Text>
+            <TouchableOpacity
+              style={styles.resetBtn}
+              onPress={() => {
+                Alert.alert(
+                  'reset everything?',
+                  'this will delete all your data and restart onboarding. cannot be undone.',
+                  [
+                    { text: 'cancel', style: 'cancel' },
+                    {
+                      text: 'reset',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await clearAllData();
+                        router.replace('/onboarding/welcome');
+                      },
+                    },
+                  ]
+                );
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="reset all app data"
+            >
+              <Text variant="micro" color={Colors.textTertiary} style={styles.resetText}>
+                reset all data
+              </Text>
+            </TouchableOpacity>
           </View>
         </Section>
 
@@ -209,6 +235,8 @@ const styles = StyleSheet.create({
   finePrint: { padding: 16, gap: 8 },
   finePrintText: { lineHeight: 18 },
   version: { marginTop: 4 },
+  resetBtn: { marginTop: 12, minHeight: 44, justifyContent: 'center' },
+  resetText: { textDecorationLine: 'underline' },
 });
 
 const sectionStyles = StyleSheet.create({

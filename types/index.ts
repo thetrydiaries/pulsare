@@ -29,6 +29,7 @@ export interface User {
 export interface Habit {
   id: string;
   label: string;
+  userLabel?: string; // user-defined display name; overrides label everywhere it's shown
   microExplanation: string | null;
   phase: Phase;
   group: HabitGroup;
@@ -37,6 +38,12 @@ export interface Habit {
   suggestedId: string | null;
   active: boolean;
   createdAt: string; // ISO timestamp
+}
+
+export interface PersonalisedCopy {
+  habitExplanations: Record<string, string>;
+  completionAcknowledgements: Record<string, string>;
+  greetingVariations: string[];
 }
 
 export interface HabitLogEntry {

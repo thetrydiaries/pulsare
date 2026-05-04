@@ -10,12 +10,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
-import { getUser } from '@/lib/storage';
+import { getUser, getPersonalisedCopy } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
-import { getLogicalDate, parseDate } from '@/lib/dayBoundary';
+import { getLogicalDate, parseDate, daysSinceStart } from '@/lib/dayBoundary';
 import type { Habit, User } from '@/types';
 
-// ─── Habit learn content (reframe + science) ─────────────────────────────────
+// ─── Default habit learn content ─────────────────────────────────────────────
 
 interface HabitLearnContent {
   reframe: string;
@@ -55,7 +55,7 @@ const HABIT_LEARN: Record<string, HabitLearnContent> = {
   },
 };
 
-// ─── Weekly concept library (phase-sequenced) ────────────────────────────────
+// ─── Weekly concept library ───────────────────────────────────────────────────
 
 interface WeeklyConcept {
   title: string;
@@ -66,7 +66,7 @@ interface WeeklyConcept {
 const WEEKLY_CONCEPTS: WeeklyConcept[] = [
   {
     title: 'circadian rhythm',
-    definition: 'your body's internal clock, synchronised by light, temperature, and timing cues.',
+    definition: "your body's internal clock, synchronised by light, temperature, and timing cues.",
     body: `you've just set a wake anchor. here's why that matters so much more than it might seem.\n\nyour circadian rhythm is a roughly 24-hour biological cycle that governs almost everything — when cortisol rises, when melatonin is released, when your body temperature peaks, when your immune system is most active, and when your brain is best suited to focus or to rest.\n\nit doesn't run on a precise schedule by itself. it synchronises. the primary signal is light — specifically morning light hitting your retina. the secondary signal is timing: when you wake, when you eat, when you move. your wake anchor is training this system.\n\nthe research on consistency is unambiguous: a regular wake time is more powerful than any other sleep intervention. not because mornings are sacred, but because the body needs predictability to regulate itself. you are giving your nervous system something to sync to.`,
   },
   {
@@ -76,21 +76,17 @@ const WEEKLY_CONCEPTS: WeeklyConcept[] = [
   },
   {
     title: 'neuroplasticity',
-    definition: 'the brain's ability to change its structure and function in response to repeated experience.',
+    definition: "the brain's ability to change its structure and function in response to repeated experience.",
     body: `three weeks. you've literally been building something.\n\nneuroplasticity is not a metaphor. repeated behaviours — especially those tied to circadian rhythms and stress regulation — measurably change the physical structure of your brain. synaptic connections strengthen with use. networks that fire together wire together. this happens at every age.\n\nwhat makes the habits you've been building particularly potent is that they target the systems that regulate neuroplasticity itself. sleep consolidates learning. BDNF from morning movement promotes the growth of new neural connections. cortisol regulation protects the prefrontal cortex, which is the part of your brain most responsible for executive function — the part most affected by burnout.\n\nyou are not just feeling better. you are building a different brain. it takes longer than three weeks to see the full effect, but the structural changes begin almost immediately. you've already started.`,
   },
 ];
 
 function getWeekNumber(startDate: string): number {
-  const start = parseDate(startDate);
-  const today = parseDate(getLogicalDate());
-  const diffMs = today.getTime() - start.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(1, Math.ceil((diffDays + 1) / 7));
+  return Math.max(1, Math.ceil(daysSinceStart(startDate) / 7));
 }
 
 function getDaysUntilNextMonday(): number {
-  const dow = new Date().getDay(); // 0=Sun
+  const dow = new Date().getDay();
   return dow === 1 ? 7 : (8 - dow) % 7;
 }
 
@@ -115,7 +111,12 @@ function HabitAccordionRow({ habit, isOpen, onToggle }: AccordionRowProps) {
     }).start();
   }
 
-  const content = HABIT_LEARN[habit.suggestedId ?? ''] ?? null;
+  const suggestedId = habit.suggestedId ?? '';
+  const defaultContent = HABIT_LEARN[suggestedId] ?? null;
+  const personalisedCopy = getPersonalisedCopy();
+  const personalisedReframe = personalisedCopy?.habitExplanations?.[suggestedId];
+
+  const displayLabel = habit.userLabel ?? habit.label;
 
   return (
     <View style={accordionStyles.row}>
@@ -124,21 +125,21 @@ function HabitAccordionRow({ habit, isOpen, onToggle }: AccordionRowProps) {
         style={accordionStyles.header}
         accessibilityRole="button"
         accessibilityState={{ expanded: isOpen }}
-        accessibilityLabel={`${habit.label}, ${isOpen ? 'collapse' : 'expand'}`}
+        accessibilityLabel={`${displayLabel}, ${isOpen ? 'collapse' : 'expand'}`}
         activeOpacity={0.7}
       >
         <Text variant="body" color={Colors.textSecondary} size={15}>
-          {habit.label}
+          {displayLabel}
         </Text>
       </TouchableOpacity>
 
-      {isOpen && content && (
+      {isOpen && defaultContent && (
         <Animated.View style={[accordionStyles.expanded, { opacity: fadeAnim }]}>
           <Text variant="body" color={Colors.textSecondary} size={14} style={accordionStyles.reframe}>
-            {content.reframe}
+            {personalisedReframe ?? defaultContent.reframe}
           </Text>
           <Text variant="label" color={Colors.textTertiary} style={accordionStyles.science}>
-            {content.science}
+            {defaultContent.science}
           </Text>
         </Animated.View>
       )}
@@ -191,7 +192,6 @@ export default function LearnScreen() {
           ))}
         </View>
 
-        {/* Section divider */}
         <View style={styles.divider} />
 
         {/* Section 2 — This week */}

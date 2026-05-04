@@ -37,11 +37,11 @@ export default function ProjectScreen() {
             </View>
 
             <Text variant="serif" size={26} style={styles.question}>
-              When you're ready — around week four — we'll add one hour a day on one thing that matters to you.
+              when you're ready — around week four — we'll add one hour a day on one thing that matters to you.
             </Text>
 
             <Text variant="body" color={Colors.textSecondary} style={styles.sub}>
-              What's something you've been meaning to build, write, or work on?
+              what's something you've been meaning to build, write, or work on?
             </Text>
 
             <TextInput

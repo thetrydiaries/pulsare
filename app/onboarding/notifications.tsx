@@ -33,7 +33,7 @@ export default function NotificationsScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
-            We'll send you three gentle reminders a day. Here are the defaults — change anything.
+            we'll send you three gentle reminders a day. here are the defaults — change anything.
           </Text>
 
           <View style={styles.pickers}>
@@ -51,7 +51,7 @@ export default function NotificationsScreen() {
           </View>
 
           <Text variant="label" style={styles.micro}>
-            These aren't alarms. They're anchors. Consistent timing trains your nervous system more than any single habit.
+            these aren't alarms. they're anchors. consistent timing trains your nervous system more than any single habit.
           </Text>
         </View>
 

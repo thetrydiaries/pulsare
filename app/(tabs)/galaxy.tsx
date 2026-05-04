@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import StarMark from '@/components/galaxy/StarMark';
@@ -11,6 +11,7 @@ import {
   getLogicalDate,
   formatDate,
   parseDate,
+  daysSinceStart,
 } from '@/lib/dayBoundary';
 import {
   getDayStats,
@@ -21,6 +22,36 @@ import { getStreakData } from '@/lib/storage';
 import type { DayStats } from '@/types';
 
 type TabView = 'week' | 'month';
+
+const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+// ─── Galaxy concept cards (weeks 1–3) ────────────────────────────────────────
+
+interface GalaxyConcept {
+  title: string;
+  definition: string;
+}
+
+const GALAXY_CONCEPTS: GalaxyConcept[] = [
+  {
+    title: 'circadian rhythm',
+    definition: 'your body runs on a 24-hour internal clock that governs cortisol, mood, energy, and sleep — and consistency matters more than the time you choose.',
+  },
+  {
+    title: 'the cortisol awakening response',
+    definition: 'in the 30–45 minutes after waking, cortisol spikes naturally to prepare you for the day — what you do in that window either amplifies the spike or steadies it.',
+  },
+  {
+    title: 'neuroplasticity',
+    definition: 'every time you repeat a behaviour, the neural pathway for it becomes slightly more efficient — what you\'ve been doing for three weeks is literally restructuring your brain.',
+  },
+];
+
+function getWeekNumber(startDate: string): number {
+  return Math.max(1, Math.ceil(daysSinceStart(startDate) / 7));
+}
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function getWeekDates(): string[] {
   const today = new Date();
@@ -47,24 +78,36 @@ function getMonthDates(): string[] {
   return dates;
 }
 
-// Pad month to start on Monday
-function getMonthGrid(): (string | null)[] {
+// Returns month dates padded to start on Monday, grouped into rows of 7.
+// Using explicit rows (not flexWrap) avoids float-precision misalignment.
+function getMonthWeeks(): (string | null)[][] {
   const dates = getMonthDates();
-  const firstDow = (parseDate(dates[0]).getDay() + 6) % 7; // Mon=0
-  const padding: null[] = Array(firstDow).fill(null);
-  return [...padding, ...dates];
+  // (getDay() + 6) % 7: Sun=6, Mon=0, ..., Sat=5
+  const firstDow = (parseDate(dates[0]).getDay() + 6) % 7;
+  const padded: (string | null)[] = [
+    ...Array(firstDow).fill(null),
+    ...dates,
+  ];
+  // Fill trailing cells to complete last row
+  while (padded.length % 7 !== 0) padded.push(null);
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < padded.length; i += 7) {
+    weeks.push(padded.slice(i, i + 7));
+  }
+  return weeks;
 }
 
-// Small deterministic x/y nudge per date — makes the field read as organic
 function deterministicOffset(dateString: string): { x: number; y: number } {
   let hash = 0;
   for (let i = 0; i < dateString.length; i++) {
     hash = (hash * 31 + dateString.charCodeAt(i)) & 0xffffffff;
   }
-  const x = ((hash & 0xff) / 255 - 0.5) * 6; // ±3pt
-  const y = (((hash >> 8) & 0xff) / 255 - 0.5) * 6; // ±3pt
+  const x = ((hash & 0xff) / 255 - 0.5) * 6;
+  const y = (((hash >> 8) & 0xff) / 255 - 0.5) * 6;
   return { x, y };
 }
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function GalaxyScreen() {
   const [tab, setTab] = useState<TabView>('week');
@@ -74,7 +117,6 @@ export default function GalaxyScreen() {
   const [streak, setStreak] = useState(0);
 
   const insets = useSafeAreaInsets();
-  // Canvas horizontal padding: device safe area + 20pt per spec
   const canvasPaddingH = insets.left + 20;
 
   const user = getUser();
@@ -87,7 +129,6 @@ export default function GalaxyScreen() {
       for (const d of dates) {
         map[d] = getDayStats(d);
       }
-      // Add future days for month view
       const monthDates = getMonthDates();
       for (const d of monthDates) {
         if (!map[d]) map[d] = { date: d, state: 'future', habitsComplete: 0, habitsTotal: 0 };
@@ -102,8 +143,12 @@ export default function GalaxyScreen() {
   if (!user) return null;
 
   const weekDates = getWeekDates();
-  const monthGrid = getMonthGrid();
+  const monthWeeks = getMonthWeeks();
   const today = getLogicalDate();
+
+  const weekNum = getWeekNumber(user.startDate);
+  const conceptIndex = Math.min(weekNum - 1, GALAXY_CONCEPTS.length - 1);
+  const concept = GALAXY_CONCEPTS[conceptIndex];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -120,7 +165,7 @@ export default function GalaxyScreen() {
           </Text>
         </View>
 
-        {/* Tabs — same horizontal inset as canvas */}
+        {/* Tabs */}
         <View style={[styles.tabs, { paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }]}>
           {(['week', 'month'] as TabView[]).map((t) => (
             <TouchableOpacity
@@ -141,19 +186,26 @@ export default function GalaxyScreen() {
           ))}
         </View>
 
-        {/* Week view — canvas with safe area insets */}
+        {/* Week view */}
         {tab === 'week' && (
           <View style={[styles.weekRow, { paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }]}>
-            {weekDates.map((d) => {
+            {weekDates.map((d, i) => {
               const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
               const offset = deterministicOffset(d);
+              const isToday = d === today;
+              const labelColor = isToday ? Colors.textSecondary : Colors.textTertiary;
               return (
                 <View
                   key={d}
                   style={[styles.weekCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
                 >
-                  <StarMark state={s.state} />
-                  <Text variant="micro" style={styles.dayLabel}>
+                  <Text variant="micro" style={[styles.weekDayLetter, { color: labelColor }]}>
+                    {DAY_LETTERS[i]}
+                  </Text>
+                  <View style={styles.weekStarContainer}>
+                    <StarMark state={s.state} />
+                  </View>
+                  <Text variant="micro" style={[styles.weekDateNum, { color: labelColor }]}>
                     {parseDate(d).getDate()}
                   </Text>
                 </View>
@@ -162,31 +214,35 @@ export default function GalaxyScreen() {
           </View>
         )}
 
-        {/* Month view — canvas with safe area insets */}
+        {/* Month view — explicit rows to avoid float-precision column misalignment */}
         {tab === 'month' && (
           <View style={{ paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }}>
-            <View style={styles.dayHeaders}>
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((l, i) => (
+            <View style={styles.dayHeaderRow}>
+              {DAY_LETTERS.map((l, i) => (
                 <View key={i} style={styles.gridCell}>
                   <Text variant="micro" style={styles.dayHeaderLabel}>{l}</Text>
                 </View>
               ))}
             </View>
-            <View style={styles.monthGrid}>
-              {monthGrid.map((d, i) => {
-                if (!d) return <View key={`pad-${i}`} style={styles.gridCell} />;
-                const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
-                const offset = deterministicOffset(d);
-                return (
-                  <View
-                    key={d}
-                    style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
-                  >
-                    <StarMark state={s.state} />
-                  </View>
-                );
-              })}
-            </View>
+            {monthWeeks.map((week, wi) => (
+              <View key={wi} style={styles.monthWeekRow}>
+                {week.map((d, ci) => {
+                  if (!d) return <View key={`pad-${wi}-${ci}`} style={styles.gridCell} />;
+                  const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
+                  const offset = deterministicOffset(d);
+                  return (
+                    <View
+                      key={d}
+                      style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                    >
+                      <View style={styles.monthStarContainer}>
+                        <StarMark state={s.state} />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         )}
 
@@ -195,6 +251,23 @@ export default function GalaxyScreen() {
           <StatBlock value={presentDays} label="days present" />
           <StatBlock value={`${presenceRate}%`} label="presence rate" />
           <StatBlock value={streak} label="current streak" />
+        </View>
+
+        {/* Weekly concept card */}
+        <View style={[styles.conceptCard, { marginHorizontal: canvasPaddingH }]}>
+          <Text variant="serif" size={18} style={styles.conceptTitle}>{concept.title}</Text>
+          <Text variant="label" color={Colors.textSecondary} style={styles.conceptDef}>
+            {concept.definition}
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/learn')}
+            accessibilityRole="link"
+            accessibilityLabel="read more on learn screen"
+          >
+            <Text variant="label" color={Colors.tealText} style={styles.readMore}>
+              read more →
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -228,22 +301,56 @@ const styles = StyleSheet.create({
   },
   tab: { minHeight: 44, justifyContent: 'center' },
   tabActive: { borderBottomWidth: 1, borderBottomColor: Colors.tealText },
+
+  // Week view
   weekRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 20,
+    paddingVertical: 12,
   },
-  weekCell: { alignItems: 'center', gap: 6, flex: 1 },
-  dayLabel: { textAlign: 'center' },
-  dayHeaders: { flexDirection: 'row', marginBottom: 4 },
-  dayHeaderLabel: { textAlign: 'center' },
-  monthGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  weekCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  weekDayLetter: {
+    textAlign: 'center',
+  },
+  weekStarContainer: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekDateNum: {
+    textAlign: 'center',
+  },
+
+  // Month view
+  dayHeaderRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  dayHeaderLabel: {
+    textAlign: 'center',
+  },
+  monthWeekRow: {
+    flexDirection: 'row',
+  },
   gridCell: {
-    width: `${100 / 7}%`,
+    flex: 1,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  monthStarContainer: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Stats
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -255,4 +362,25 @@ const styles = StyleSheet.create({
   },
   statBlock: { alignItems: 'flex-start', gap: 2, flex: 1 },
   statLabel: { fontSize: 10 },
+
+  // Concept card
+  conceptCard: {
+    marginTop: 32,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 16,
+    padding: 20,
+    gap: 10,
+  },
+  conceptTitle: {
+    lineHeight: 26,
+  },
+  conceptDef: {
+    lineHeight: 20,
+  },
+  readMore: {
+    textAlign: 'right',
+    marginTop: 4,
+  },
 });

@@ -9,10 +9,10 @@ import PipIndicator from '@/components/ui/PipIndicator';
 import { storage } from '@/lib/storage';
 
 const OPTIONS = [
-  'Running on empty',
-  'Holding it together, barely',
-  'Not great, but I\'m ready to try something',
-  'I\'ve been here before — I know what I need',
+  'running on empty',
+  'holding it together, barely',
+  "not great, but i'm ready to try something",
+  "i've been here before — i know what i need",
 ];
 
 export default function MoodScreen() {

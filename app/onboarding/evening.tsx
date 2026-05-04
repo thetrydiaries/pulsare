@@ -9,31 +9,32 @@ import PipIndicator from '@/components/ui/PipIndicator';
 import { storage } from '@/lib/storage';
 import type { EveningHabitType } from '@/types';
 
-const PRESETS: { type: EveningHabitType; label: string }[] = [
-  { type: 'reading', label: 'Reading — fiction or otherwise' },
-  { type: 'phone-off', label: 'Phone off — no screens after a chosen time' },
-  { type: 'breathwork', label: 'Breathwork — a wind-down practice' },
-  { type: 'journalling', label: 'Journalling — three sentences' },
+const PRESETS: { type: EveningHabitType; label: string; shortLabel: string }[] = [
+  { type: 'reading',    label: 'Reading — fiction or otherwise', shortLabel: 'reading' },
+  { type: 'phone-off', label: 'Phone off — no screens after a chosen time', shortLabel: 'phone off' },
+  { type: 'breathwork', label: 'Breathwork — a wind-down practice', shortLabel: 'evening breathwork' },
+  { type: 'journalling', label: 'Journalling — three sentences', shortLabel: 'journalling' },
 ];
 
 export default function EveningScreen() {
   const [selected, setSelected] = useState<EveningHabitType | null>(null);
   const [custom, setCustom] = useState('');
   const [showCustom, setShowCustom] = useState(false);
+  const [userLabel, setUserLabel] = useState('');
 
-  const displayLabel = showCustom
-    ? custom.trim()
-    : PRESETS.find((p) => p.type === selected)?.label ?? '';
+  const selectedPreset = PRESETS.find((p) => p.type === selected);
 
   function handleSelect(type: EveningHabitType) {
     setSelected(type);
     setShowCustom(false);
     setCustom('');
+    setUserLabel('');
   }
 
   function handleCustom() {
     setSelected(null);
     setShowCustom(true);
+    setUserLabel('');
   }
 
   const isValid = showCustom ? !!custom.trim() : !!selected;
@@ -46,6 +47,9 @@ export default function EveningScreen() {
       : PRESETS.find((p) => p.type === selected)!.label;
     storage.set('onboarding.eveningHabitType', type);
     storage.set('onboarding.eveningHabitLabel', label);
+    if (userLabel.trim()) {
+      storage.set('onboarding.eveningUserLabel', userLabel.trim());
+    }
     router.push('/onboarding/notifications');
   }
 
@@ -60,7 +64,7 @@ export default function EveningScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
-            How do you want to end your day?
+            how do you want to end your day?
           </Text>
 
           <View style={styles.options}>
@@ -76,7 +80,7 @@ export default function EveningScreen() {
                   variant="body"
                   color={selected === p.type && !showCustom ? Colors.tealText : Colors.textSecondary}
                 >
-                  {p.label}
+                  {p.label.toLowerCase()}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -88,7 +92,7 @@ export default function EveningScreen() {
               accessibilityState={{ selected: showCustom }}
             >
               <Text variant="body" color={showCustom ? Colors.tealText : Colors.textSecondary}>
-                Something else
+                something else
               </Text>
             </TouchableOpacity>
 
@@ -105,10 +109,28 @@ export default function EveningScreen() {
                 accessibilityLabel="describe your evening habit"
               />
             )}
+
+            {selectedPreset && (
+              <View style={styles.labelBlock}>
+                <Text variant="label" style={styles.labelHint}>
+                  what do you call this?
+                </Text>
+                <TextInput
+                  style={styles.labelInput}
+                  placeholder={selectedPreset.shortLabel}
+                  placeholderTextColor={Colors.textTertiary}
+                  value={userLabel}
+                  onChangeText={setUserLabel}
+                  returnKeyType="done"
+                  onSubmitEditing={handleNext}
+                  accessibilityLabel="what do you call this habit"
+                />
+              </View>
+            )}
           </View>
 
           <Text variant="label" style={styles.micro}>
-            Your evening anchor is as important as your morning one. The nervous system needs a consistent signal that the day is ending. Choose something you'll actually do.
+            your evening anchor is as important as your morning one. the nervous system needs a consistent signal that the day is ending. choose something you'll actually do.
           </Text>
         </View>
 
@@ -145,6 +167,19 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
     paddingVertical: 12,
     marginTop: 4,
+  },
+  labelBlock: { gap: 6, marginTop: 4 },
+  labelHint: {
+    color: Colors.textTertiary,
+    fontSize: 12,
+  },
+  labelInput: {
+    fontFamily: 'Outfit_300Light',
+    fontSize: 14,
+    color: Colors.textPrimary,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+    paddingVertical: 10,
   },
   micro: { lineHeight: 20, fontSize: 13 },
   button: { marginTop: 8 },

@@ -17,10 +17,10 @@ export default function WelcomeScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={34} style={styles.headline}>
-            You're here.
+            you're here.
           </Text>
           <Text variant="serifItalic" size={34} style={styles.sub}>
-            That's already something.
+            that's already something.
           </Text>
         </View>
 

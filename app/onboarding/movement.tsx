@@ -9,34 +9,41 @@ import PipIndicator from '@/components/ui/PipIndicator';
 import { storage } from '@/lib/storage';
 
 const PRESETS = [
-  'Morning walk',
-  'Walk with someone',
-  'Swim',
-  'Cycle',
-  'Yoga / stretching',
+  'morning walk',
+  'walk with someone',
+  'swim',
+  'cycle',
+  'yoga / stretching',
 ];
 
 export default function MovementScreen() {
   const [selected, setSelected] = useState<string | null>(null);
   const [custom, setCustom] = useState('');
   const [showCustom, setShowCustom] = useState(false);
+  const [userLabel, setUserLabel] = useState('');
 
   function handleSelect(opt: string) {
     setSelected(opt);
     setShowCustom(false);
     setCustom('');
+    setUserLabel('');
   }
 
   function handleCustom() {
     setSelected(null);
     setShowCustom(true);
+    setUserLabel('');
   }
 
-  const value = showCustom ? custom.trim() : selected;
+  const activityValue = showCustom ? custom.trim() : selected;
+  const hasSelection = !!activityValue;
 
   function handleNext() {
-    if (!value) return;
-    storage.set('onboarding.movement', value);
+    if (!activityValue) return;
+    storage.set('onboarding.movement', activityValue);
+    if (userLabel.trim()) {
+      storage.set('onboarding.movementUserLabel', userLabel.trim());
+    }
     router.push('/onboarding/breathwork');
   }
 
@@ -51,7 +58,7 @@ export default function MovementScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
-            How do you want to move in the mornings?
+            how do you want to move in the mornings?
           </Text>
 
           <View style={styles.options}>
@@ -79,7 +86,7 @@ export default function MovementScreen() {
               accessibilityState={{ selected: showCustom }}
             >
               <Text variant="body" color={showCustom ? Colors.tealText : Colors.textSecondary}>
-                Something else
+                something else
               </Text>
             </TouchableOpacity>
 
@@ -96,14 +103,32 @@ export default function MovementScreen() {
                 accessibilityLabel="describe your movement"
               />
             )}
+
+            {hasSelection && !showCustom && (
+              <TextInput
+                style={styles.labelInput}
+                placeholder={activityValue ?? ''}
+                placeholderTextColor={Colors.textTertiary}
+                value={userLabel}
+                onChangeText={setUserLabel}
+                returnKeyType="done"
+                onSubmitEditing={handleNext}
+                accessibilityLabel="what do you call this habit"
+              />
+            )}
+            {hasSelection && !showCustom && (
+              <Text variant="label" style={styles.labelHint}>
+                what do you call this?
+              </Text>
+            )}
           </View>
 
           <Text variant="label" style={styles.micro}>
-            In Phase 1, this isn't exercise — it's a signal. Low-intensity morning movement helps reset cortisol rhythm and tells your nervous system the day is safe to begin. Outdoors is best, but not required.
+            in phase 1, this isn't exercise — it's a signal. low-intensity morning movement helps reset cortisol rhythm and tells your nervous system the day is safe to begin. outdoors is best, but not required.
           </Text>
         </View>
 
-        <Button label="next" onPress={handleNext} disabled={!value} style={styles.button} />
+        <Button label="next" onPress={handleNext} disabled={!activityValue} style={styles.button} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -135,6 +160,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
     paddingVertical: 12,
+    marginTop: 4,
+  },
+  labelHint: {
+    color: Colors.textTertiary,
+    fontSize: 12,
+    marginTop: -4,
+  },
+  labelInput: {
+    fontFamily: 'Outfit_300Light',
+    fontSize: 14,
+    color: Colors.textPrimary,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+    paddingVertical: 10,
     marginTop: 4,
   },
   micro: { lineHeight: 20, fontSize: 13 },

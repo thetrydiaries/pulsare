@@ -33,7 +33,7 @@ export default function StartDateScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
-            When do you want to begin?
+            when do you want to begin?
           </Text>
 
           <View style={styles.options}>
@@ -47,7 +47,7 @@ export default function StartDateScreen() {
                 variant="bodySemibold"
                 color={choice === 'today' ? Colors.tealText : Colors.textSecondary}
               >
-                Today
+                today
               </Text>
               <Text variant="label" style={styles.dateLabel}>{today}</Text>
             </TouchableOpacity>
@@ -62,7 +62,7 @@ export default function StartDateScreen() {
                 variant="body"
                 color={choice === 'later' ? Colors.tealText : Colors.textSecondary}
               >
-                Tomorrow
+                tomorrow
               </Text>
               <Text variant="label" style={styles.dateLabel}>{tomorrow}</Text>
             </TouchableOpacity>

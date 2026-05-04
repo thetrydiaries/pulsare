@@ -28,7 +28,7 @@ export default function WakeTimeScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
-            What time do you want to wake up?
+            what time do you want to wake up?
           </Text>
 
           <View style={styles.pickerBlock}>
@@ -40,7 +40,7 @@ export default function WakeTimeScreen() {
           </View>
 
           <Text variant="label" style={styles.micro}>
-            Your wake time is the anchor for everything else. Your body clock regulates cortisol, mood, and energy — and it needs consistency more than the 'perfect' time. Choose what you can protect, not what sounds ideal.
+            your wake time is the anchor for everything else. your body clock regulates cortisol, mood, and energy — and it needs consistency more than the 'perfect' time. choose what you can protect, not what sounds ideal.
           </Text>
         </View>
 

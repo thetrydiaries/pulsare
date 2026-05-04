@@ -17,10 +17,9 @@ export default function WeekStrip({ days, todayIndex }: Props) {
     <View style={styles.row}>
       {days.map((day, i) => (
         <View key={day.date} style={styles.cell}>
-          <StarMark
-            state={day.state}
-            isToday={i === todayIndex}
-          />
+          <View style={styles.starContainer}>
+            <StarMark state={day.state} isToday={i === todayIndex} />
+          </View>
           <Text
             variant="micro"
             color={i === todayIndex ? Colors.tealText : undefined}
@@ -44,7 +43,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  letter: {
-    textAlign: 'center',
+  starContainer: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

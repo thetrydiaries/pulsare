@@ -1,7 +1,7 @@
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import type { Habit, Phase, HabitGroup, User } from '@/types';
-import { getHabits, upsertHabit, setHabits } from './storage';
+import { getHabits, upsertHabit, setHabits, storage } from './storage';
 
 // ─── Micro-explanations by suggestedId ──────────────────────────────────────
 
@@ -77,6 +77,8 @@ export function initPhase1Habits(user: User): void {
 
   const movementLabel = user.movementType || 'morning movement';
   const movement = makeHabit('morning-movement', movementLabel, 1, 'morning', false);
+  const movementUserLabel = storage.getString('onboarding.movementUserLabel')?.trim();
+  if (movementUserLabel) movement.userLabel = movementUserLabel;
   habits[movement.id] = movement;
 
   const breathLabel =
@@ -88,6 +90,8 @@ export function initPhase1Habits(user: User): void {
       ? 'your existing practice. just do it.'
       : MICRO_EXPLANATIONS['nervous-system-reset'];
   const breath = makeHabit('nervous-system-reset', breathLabel, 1, 'morning', false, breathMicro);
+  const breathUserLabel = storage.getString('onboarding.breathworkUserLabel')?.trim();
+  if (breathUserLabel) breath.userLabel = breathUserLabel;
   habits[breath.id] = breath;
 
   const eveningMicro =
@@ -100,6 +104,8 @@ export function initPhase1Habits(user: User): void {
     false,
     eveningMicro,
   );
+  const eveningUserLabel = storage.getString('onboarding.eveningUserLabel')?.trim();
+  if (eveningUserLabel) evening.userLabel = eveningUserLabel;
   habits[evening.id] = evening;
 
   setHabits(habits);
