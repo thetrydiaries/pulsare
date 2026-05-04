@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-05-04 — UI amendments and new features (brief v2)
+
+### UI amendments
+- **Time-sensitive greeting (UI 1)** — greeting now reflects the actual time of day across four bands: *"good morning"* (5am–noon), *"good afternoon"* (noon–5pm), *"good evening"* (5pm–9pm), *"still up"* (9pm–5am). Re-evaluates on every app foreground event via the AppState listener. AI-generated personalised copy updated to produce five variations per band (`morning`, `afternoon`, `evening`, `latenight` keys). Falls back to the appropriate default per band — no empty greeting is ever shown.
+- **Rename "wake anchor" → "wake up alarm" (UI 2)** — every user-facing instance of "wake anchor" replaced with "wake up alarm". `suggestedId: 'wake-anchor'` is unchanged for data continuity. Updated: home screen habit row label, Learn screen accordion, AI copy prompt instructions.
+
+### New features
+- **Custom habit — onboarding (Feature 5A)** — new screen inserted between the evening anchor screen and the notification times screen (new step 9 of 13). Prompts: *"is there something else you want to hold yourself to?"* Free-text field (40 char max). Morning/evening time-of-day toggle appears once the user starts typing. Button reads "add it" if a name is entered, "skip for now" if empty. If added, habit is created with `isCustom: true`, `suggestedId: null`, `locked: false`. Skipping leaves no habit record.
+- **Custom habit — add post-onboarding (Feature 5B)** — a `+` in tertiary text sits below each habit group on the home screen, visible only when the user has fewer than 2 custom habits active in that group. Tapping opens a `CustomHabitSheet` bottom sheet (slide-up modal) with the same two-part input. Confirms with "add habit". Dismisses on tap outside or swipe down.
+- **Custom habit — remove (Feature 5C)** — long pressing any custom habit row on the home screen reveals a *"remove this habit"* line in tertiary text beneath the habit name. Tapping it shows a confirmation: *"remove [habit name]?"* with "yes, remove it" / "keep it". On confirm, habit is marked `active: false` in storage; historical log entries are not altered. The same remove option appears inline on the profile screen under "your anchors".
+- **Phase explainer modal (Feature 6)** — tapping the phase label in the home screen status bar opens a full-screen slide-up modal. Shows three phase cards (stabilise / build / raise the stakes) with week range, one-sentence description, and habit list. Phase 1 card uses the user's actual personalised habit labels. Current phase card has a teal border and a *"you are here"* label; upcoming phases are visually quieter. Phase 2 and 3 carry an *"unlocks at week 4/9"* label. Footer: *"phases unlock when you're ready — not on a timer."* Phase label has a 2pt indicator dot and ≥44pt tap target. Dismisses on swipe down or `×` tap.
+- **Developer mode (Feature 7)** — tapping the app version number five times within 2 seconds activates developer mode for the current session (session-only, not persisted). An amber toast *"developer mode on"* appears for 2 seconds. A "dev tools" section (amber label) appears on the profile screen above the fine print with three options: (1) **set start date** — text input accepting YYYY-MM-DD, immediately recalculates week number, streak, and galaxy range; (2) **phase override** — three-segment control (1 / 2 / 3) that forces the app to render as a specific phase without writing to MMKV; (3) **reset everything** — confirmation alert that clears all data and navigates to the onboarding welcome screen.
+
+---
+
 ## 2026-05-04 — Bug fixes, UI amendments, and new features (brief v1)
 
 ### Bug fixes

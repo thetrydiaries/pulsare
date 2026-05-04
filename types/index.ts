@@ -43,7 +43,12 @@ export interface Habit {
 export interface PersonalisedCopy {
   habitExplanations: Record<string, string>;
   completionAcknowledgements: Record<string, string>;
-  greetingVariations: string[];
+  greetingVariations: {
+    morning: string[];
+    afternoon: string[];
+    evening: string[];
+    latenight: string[];
+  };
 }
 
 export interface HabitLogEntry {

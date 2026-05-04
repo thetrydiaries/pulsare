@@ -29,7 +29,7 @@ export default function StartDateScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <PipIndicator total={12} current={10} />
+        <PipIndicator total={13} current={11} />
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>

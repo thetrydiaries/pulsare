@@ -29,7 +29,7 @@ export default function NotificationsScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={12} current={8} />
+        <PipIndicator total={13} current={9} />
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>

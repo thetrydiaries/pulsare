@@ -6,6 +6,7 @@ import {
   Animated,
   useAnimatedValue,
   AccessibilityInfo,
+  Alert,
 } from 'react-native';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
@@ -25,13 +26,15 @@ interface Props {
   completed: boolean;
   nudge?: boolean;
   onToggle: (id: string) => void;
+  onRemove?: () => void;
 }
 
-export default function HabitRow({ habit, completed, nudge = false, onToggle }: Props) {
+export default function HabitRow({ habit, completed, nudge = false, onToggle, onRemove }: Props) {
   const fillAnim = useAnimatedValue(completed ? 1 : 0);
   const scaleAnim = useAnimatedValue(1);
   const ackAnim = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [showRemove, setShowRemove] = useState(false);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
@@ -46,6 +49,22 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle }: 
       copy?.completionAcknowledgements?.[suggestedId] ??
       COMPLETION_FALLBACKS[suggestedId] ??
       'done.'
+    );
+  }
+
+  function handleLongPress() {
+    if (habit.isCustom && onRemove) setShowRemove(true);
+  }
+
+  function handleRemoveTap() {
+    setShowRemove(false);
+    Alert.alert(
+      `remove ${displayLabel}?`,
+      '',
+      [
+        { text: 'keep it', style: 'cancel' },
+        { text: 'yes, remove it', onPress: onRemove },
+      ]
     );
   }
 
@@ -93,7 +112,13 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle }: 
       style={[styles.row, nudge && styles.nudge]}
       accessibilityRole="none"
     >
-      <View style={styles.labelBlock}>
+      <TouchableOpacity
+        style={styles.labelBlock}
+        onLongPress={habit.isCustom && onRemove ? handleLongPress : undefined}
+        delayLongPress={500}
+        activeOpacity={habit.isCustom && onRemove ? 0.7 : 1}
+        accessible={false}
+      >
         <View style={styles.labelRow}>
           <Text
             variant="body"
@@ -104,13 +129,20 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle }: 
           </Text>
           <View style={styles.learnDot} />
         </View>
+        {showRemove && (
+          <TouchableOpacity onPress={handleRemoveTap} accessibilityRole="button" accessibilityLabel={`remove ${displayLabel}`}>
+            <Text variant="label" color={Colors.textTertiary} style={styles.removeText}>
+              remove this habit
+            </Text>
+          </TouchableOpacity>
+        )}
         <Animated.Text
           style={[styles.ackText, { opacity: ackAnim }]}
           accessibilityElementsHidden
         >
           {getAckText()}
         </Animated.Text>
-      </View>
+      </TouchableOpacity>
 
       <TouchableOpacity
         onPress={handlePress}
@@ -181,6 +213,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     lineHeight: 18,
+  },
+  removeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
   },
   checkTarget: {
     width: 44,

@@ -50,7 +50,12 @@ Generate personalised copy for this user. Respond ONLY with valid JSON — no pr
     "nervous-system-reset": "string",
     "evening-anchor": "string"
   },
-  "greetingVariations": ["string", "string", "string", "string", "string"]
+  "greetingVariations": {
+    "morning": ["string", "string", "string", "string", "string"],
+    "afternoon": ["string", "string", "string", "string", "string"],
+    "evening": ["string", "string", "string", "string", "string"],
+    "latenight": ["string", "string", "string", "string", "string"]
+  }
 }
 
 Rules for the copy:
@@ -58,7 +63,7 @@ Rules for the copy:
 - Warm, direct, never clinical or cheerful
 - Habit explanations: 1–2 sentences, plain language, reference the user's specific choices where relevant (their movement type, their evening habit, their project name if given)
 - Completion acknowledgements: very short (3–6 words max), lowercase, warm — the moment after the tap. Should feel like a quiet nod, not a celebration.
-- Greeting variations: 5 variations of "good [time of day], [Name]." — some can be warmer or more personal. At least one should reference their project if they gave one. At least one should be very minimal.
+- Greeting variations: 5 variations per time band. Morning: "good morning, [Name]." style. Afternoon: "good afternoon, [Name]." style. Evening: "good evening, [Name]." style. Late night (9pm–5am): "still up, [Name]." style — warm, non-judgmental. Each band: some warmer or more personal. At least one per band should reference their project if they gave one. At least one should be very minimal.
 - Never use: "amazing", "great job", "well done", "proud", "crush it", "keep going", "don't give up"
 - Never use exclamation marks`,
           },

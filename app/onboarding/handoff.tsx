@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import { storage } from '@/lib/storage';
 import { setUser, setOnboardingComplete } from '@/lib/storage';
-import { initPhase1Habits } from '@/lib/habits';
+import { initPhase1Habits, addCustomHabit } from '@/lib/habits';
 import { scheduleAllNotifications, requestPermissions } from '@/lib/notifications';
 import { formatDate, addMinutes, subtractHours } from '@/lib/dayBoundary';
 import { generatePersonalisedCopy } from '@/lib/personalisedCopy';
@@ -53,6 +53,13 @@ export default function HandoffScreen() {
 
     setUser(user);
     initPhase1Habits(user);
+
+    const customName = storage.getString('onboarding.customHabit.name');
+    const customGroup = storage.getString('onboarding.customHabit.group') as 'morning' | 'evening' | undefined;
+    if (customName && (customGroup === 'morning' || customGroup === 'evening')) {
+      addCustomHabit(customName, customGroup, 1);
+    }
+
     setOnboardingComplete();
 
     const granted = await requestPermissions();
@@ -72,7 +79,7 @@ export default function HandoffScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={12} current={11} />
+        <PipIndicator total={13} current={12} />
 
         <View style={styles.content}>
           <Text variant="serif" size={28} style={styles.headline}>

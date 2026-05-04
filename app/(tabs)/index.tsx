@@ -8,24 +8,24 @@ import {
   AppState,
   AppStateStatus,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import HabitRow from '@/components/habits/HabitRow';
 import WeekStrip from '@/components/habits/WeekStrip';
-import { getUser, getLogEntry, updateLogEntry, getPersonalisedCopy } from '@/lib/storage';
-import { getActiveHabits } from '@/lib/habits';
+import PhaseExplainerModal from '@/components/PhaseExplainerModal';
+import CustomHabitSheet from '@/components/CustomHabitSheet';
+import { getUser, getLogEntry, updateLogEntry, getPersonalisedCopy, getHabits, upsertHabit } from '@/lib/storage';
+import { getActiveHabits, addCustomHabit } from '@/lib/habits';
 import {
   getLogicalDate,
   formatDate,
-  parseDate,
   timeIsAtOrAfter,
   currentTime,
   subtractHours,
 } from '@/lib/dayBoundary';
 import {
-  getDayStats,
   getRangeStats,
   recalculateStreak,
   isFallOff,
@@ -35,26 +35,51 @@ import {
 import { getStreakData } from '@/lib/storage';
 import {
   scheduleNeverMissTwiceNudge,
-  scheduleFallOffNotification,
 } from '@/lib/notifications';
 import { daysSinceStart } from '@/lib/dayBoundary';
-import type { Habit, DayStats } from '@/types';
+import { getDevPhaseOverride } from '@/lib/devMode';
+import type { Habit, DayStats, Phase } from '@/types';
+
+// ─── Greeting helpers ─────────────────────────────────────────────────────────
+
+type TimeBand = 'morning' | 'afternoon' | 'evening' | 'latenight';
+
+function getTimeBand(): TimeBand {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 17) return 'afternoon';
+  if (h >= 17 && h < 21) return 'evening';
+  return 'latenight';
+}
 
 function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'good morning';
-  if (h < 17) return 'good afternoon';
-  return 'good evening';
+  const band = getTimeBand();
+  if (band === 'morning') return 'good morning';
+  if (band === 'afternoon') return 'good afternoon';
+  if (band === 'evening') return 'good evening';
+  return 'still up';
 }
 
 function getPersonalisedGreeting(userName: string, startDate: string): string {
   const copy = getPersonalisedCopy();
-  if (copy?.greetingVariations?.length) {
-    const idx = (daysSinceStart(startDate) - 1) % copy.greetingVariations.length;
-    return copy.greetingVariations[idx] ?? `${getGreeting()}, ${userName}.`;
+  const band = getTimeBand();
+  const variations = copy?.greetingVariations?.[band] as string[] | undefined;
+  if (variations?.length) {
+    const idx = (daysSinceStart(startDate) - 1) % variations.length;
+    return variations[idx] ?? `${getGreeting()}, ${userName}.`;
   }
   return `${getGreeting()}, ${userName}.`;
 }
+
+// ─── Phase helpers ────────────────────────────────────────────────────────────
+
+function phaseNameFor(phase: number): string {
+  if (phase === 1) return 'stabilise';
+  if (phase === 2) return 'build';
+  return 'raise the stakes';
+}
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function getWeekDates(): string[] {
   const today = new Date();
@@ -80,8 +105,9 @@ function formatWakeTime(hhmm: string): string {
   return `${dh}:${m.toString().padStart(2, '0')}${ampm}`;
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function HomeScreen() {
-  const user = getUser();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [bodyWord, setBodyWord] = useState('');
@@ -90,6 +116,9 @@ export default function HomeScreen() {
   const [isEveningTime, setIsEveningTime] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
   const [isSunday, setIsSunday] = useState(false);
+  const [phaseModalVisible, setPhaseModalVisible] = useState(false);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [sheetGroup, setSheetGroup] = useState<'morning' | 'evening'>('morning');
   const appState = useRef(AppState.currentState);
 
   const today = getLogicalDate();
@@ -97,6 +126,7 @@ export default function HomeScreen() {
   const todayIndex = getTodayIndex(weekDates);
 
   const load = useCallback(() => {
+    const user = getUser();
     if (!user) return;
 
     if (isFallOff()) {
@@ -104,7 +134,8 @@ export default function HomeScreen() {
       return;
     }
 
-    const activeHabits = getActiveHabits(user.currentPhase);
+    const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
+    const activeHabits = getActiveHabits(effectivePhase);
     setHabits(activeHabits);
 
     const entry = getLogEntry(today);
@@ -131,6 +162,8 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
@@ -161,10 +194,29 @@ export default function HomeScreen() {
     updateLogEntry(today, { bodyCheckWord: text || null });
   }
 
+  function handleRemoveHabit(habitId: string) {
+    const allHabits = getHabits();
+    const habit = allHabits[habitId];
+    if (!habit) return;
+    upsertHabit({ ...habit, active: false });
+    load();
+  }
+
+  function handleAddHabit(name: string, group: 'morning' | 'evening') {
+    const user = getUser();
+    if (!user) return;
+    addCustomHabit(name, group, user.currentPhase);
+    load();
+  }
+
+  const user = getUser();
   if (!user) return null;
 
+  const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
   const morning = habits.filter((h) => h.group === 'morning');
   const evening = habits.filter((h) => h.group === 'evening');
+  const customMorningCount = habits.filter((h) => h.isCustom && h.group === 'morning').length;
+  const customEveningCount = habits.filter((h) => h.isCustom && h.group === 'evening').length;
 
   const wakeDisplay = formatWakeTime(user.wakeTime);
   const bedtimeDisplay = formatWakeTime(subtractHours(user.wakeTime, 8.5));
@@ -184,7 +236,18 @@ export default function HomeScreen() {
             {new Date().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
           </Text>
           <View style={styles.statusRight}>
-            <Text variant="label" color={Colors.tealText}>phase 1 · stabilise</Text>
+            <TouchableOpacity
+              onPress={() => setPhaseModalVisible(true)}
+              style={styles.phaseLabelBtn}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              accessibilityRole="button"
+              accessibilityLabel="tap to see all phases"
+            >
+              <Text variant="label" color={Colors.tealText}>
+                {`phase ${effectivePhase} · ${phaseNameFor(effectivePhase)}`}
+              </Text>
+              <View style={styles.phaseDot} />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/profile')}
               style={styles.settingsBtn}
@@ -247,8 +310,19 @@ export default function HomeScreen() {
               completed={!!completed[h.id]}
               nudge={showNudge}
               onToggle={handleToggle}
+              onRemove={h.isCustom ? () => handleRemoveHabit(h.id) : undefined}
             />
           ))}
+          {customMorningCount < 2 && (
+            <TouchableOpacity
+              style={styles.addHabitBtn}
+              onPress={() => { setSheetGroup('morning'); setSheetVisible(true); }}
+              accessibilityRole="button"
+              accessibilityLabel="add a habit to morning group"
+            >
+              <Text variant="label" color={Colors.textTertiary} size={18}>+</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Evening habits */}
@@ -260,15 +334,40 @@ export default function HomeScreen() {
               habit={h}
               completed={!!completed[h.id]}
               onToggle={handleToggle}
+              onRemove={h.isCustom ? () => handleRemoveHabit(h.id) : undefined}
             />
           ))}
+          {customEveningCount < 2 && (
+            <TouchableOpacity
+              style={styles.addHabitBtn}
+              onPress={() => { setSheetGroup('evening'); setSheetVisible(true); }}
+              accessibilityRole="button"
+              accessibilityLabel="add a habit to evening group"
+            >
+              <Text variant="label" color={Colors.textTertiary} size={18}>+</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Sleep note — bottom of scroll, above nav */}
+        {/* Sleep note */}
         <Text variant="label" style={styles.sleepNote}>
           to keep your {wakeDisplay} anchor, aim to be in bed by {bedtimeDisplay}. sleep is where the repair happens.
         </Text>
       </ScrollView>
+
+      <PhaseExplainerModal
+        visible={phaseModalVisible}
+        onClose={() => setPhaseModalVisible(false)}
+        currentPhase={effectivePhase}
+        habits={habits}
+      />
+
+      <CustomHabitSheet
+        visible={sheetVisible}
+        defaultGroup={sheetGroup}
+        onClose={() => setSheetVisible(false)}
+        onAdd={handleAddHabit}
+      />
     </SafeAreaView>
   );
 }
@@ -291,6 +390,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  phaseLabelBtn: {
+    alignItems: 'center',
+    gap: 3,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  phaseDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: Colors.textTertiary,
+    opacity: 0.6,
   },
   settingsBtn: {
     minWidth: 44,
@@ -331,6 +444,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: 1.2,
     textTransform: 'lowercase',
+  },
+  addHabitBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   reflectionBanner: {
     marginTop: 16,

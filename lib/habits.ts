@@ -69,7 +69,7 @@ function makeHabit(
 export function initPhase1Habits(user: User): void {
   const habits: Record<string, Habit> = {};
 
-  const wakeAnchor = makeHabit('wake-anchor', 'wake anchor', 1, 'morning', true);
+  const wakeAnchor = makeHabit('wake-anchor', 'wake up alarm', 1, 'morning', true);
   habits[wakeAnchor.id] = wakeAnchor;
 
   const water = makeHabit('water-before-coffee', 'water before coffee', 1, 'morning', true);

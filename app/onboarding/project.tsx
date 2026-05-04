@@ -29,7 +29,7 @@ export default function ProjectScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <PipIndicator total={12} current={9} />
+          <PipIndicator total={13} current={10} />
 
           <View style={styles.content}>
             <View style={styles.badge}>
