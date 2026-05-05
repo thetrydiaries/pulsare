@@ -58,7 +58,7 @@ export default function TimePicker({ value, label, onChange }: Props) {
 
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity style={styles.backdrop} onPress={() => setOpen(false)} activeOpacity={1}>
-          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+          <TouchableOpacity style={styles.sheet} activeOpacity={1} onPress={() => {}}>
             <Text variant="label" style={{ marginBottom: 24, textAlign: 'center' }}>
               {label ?? 'select time'}
             </Text>
@@ -107,7 +107,7 @@ export default function TimePicker({ value, label, onChange }: Props) {
             <TouchableOpacity style={styles.confirm} onPress={confirm} accessibilityRole="button" accessibilityLabel="confirm time">
               <Text variant="bodySemibold" color={Colors.background}>done</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </>

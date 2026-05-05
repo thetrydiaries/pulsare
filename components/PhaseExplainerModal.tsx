@@ -97,22 +97,22 @@ export default function PhaseExplainerModal({ visible, onClose, currentPhase, ha
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.safe}>
+        {/* Close — fixed outside scroll so it's always tappable */}
+        <View style={styles.closeRow}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeBtn}
+            accessibilityRole="button"
+            accessibilityLabel="close"
+          >
+            <Text variant="label" color={Colors.textTertiary} size={22}>×</Text>
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* Close */}
-          <View style={styles.closeRow}>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              accessibilityRole="button"
-              accessibilityLabel="close"
-            >
-              <Text variant="label" color={Colors.textTertiary} size={22}>×</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Header */}
           <Text variant="serifItalic" size={28} style={styles.heading}>
             the shape of your reset
@@ -157,6 +157,7 @@ export default function PhaseExplainerModal({ visible, onClose, currentPhase, ha
           </Text>
         </ScrollView>
       </SafeAreaView>
+
     </Modal>
   );
 }
@@ -165,14 +166,18 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   scroll: {
     paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 56,
     gap: 8,
   },
-  closeRow: { alignItems: 'flex-end' },
+  closeRow: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
   closeBtn: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: 48,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
