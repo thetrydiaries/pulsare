@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-05-05 — Bug fixes and performance (senior engineering review)
+
+### Bug fixes
+- **`storage.ts` — fire-and-forget write errors silently swallowed** — all `AsyncStorage.setItem` and `removeItem` calls were unawaited and unhandled. Write failures (device full, OS error) would silently drop data. All writes now attach a `.catch` that logs the error. `initStorage()` is also now idempotent via a singleton promise — calling it twice no longer kicks off two concurrent `multiGet` reads.
+- **`index.tsx` — stale `weekDates` closure in `useCallback`** — `load` captured the `weekDates` array from its render-time closure but only listed `today` in its dependency array. If the component re-rendered without `today` changing (e.g. any state update), `load` held a stale week and would populate the week strip with the wrong dates. `load` now computes `currentToday` and `currentWeekDates` directly inside the callback; dependency array is `[]`.
+- **`index.tsx` — `scheduleNeverMissTwiceNudge` fired on every `load()` call** — `load` runs on focus, every AppState resume, and every 5-minute interval. When `isMissedOneDayOnly()` was true the notification was rescheduled on every tick. Moved to a one-shot `useEffect([], [])`.
+- **`learn.tsx` — animation started during render** — `Animated.timing(...).start()` was called inside the component body guarded by a ref mutation, making it a side effect executed during render. This double-fires under Strict Mode and is incorrect under Concurrent Mode. Moved into `useEffect([isOpen])`.
+- **`HabitRow.tsx` — `fillAnim` not synced on external state reset** — `fillAnim` was initialised from the `completed` prop but only updated via `handlePress`. When `load()` reset completion state from storage (e.g. app foregrounded the next day), the circle visual stayed stuck at the previous session's animation value. A `useEffect` now calls `fillAnim.setValue()` when the prop changes externally without triggering the tap animation sequence.
+- **`HabitRow.tsx` — `ackAnim` sequences stacked on rapid taps** — rapid taps started new animation sequences without stopping the running one. Delayed callbacks from earlier sequences continued firing, causing the acknowledgement text to flash unpredictably. Added `ackAnim.stopAnimation()` before each new sequence.
+- **`reflection.tsx` — dead code in `getSundayKey`** — the function computed a `sunday` variable that was immediately abandoned, then re-derived the same answer via a while loop. Dead block removed.
+- **`dayBoundary.ts` — `daysAgo()` ignored the 3am logical boundary** — called between midnight and 3am without arguments, `new Date()` gives the calendar date while the logical date is still yesterday, producing off-by-one results. `daysAgo` now bases calculation on `getLogicalDate()`. The unused `from` parameter has been removed.
+- **`personalisedCopy.ts` — no `response.ok` check before parsing** — a 4xx/5xx API response still called `.json()` and accessed `.content`, producing cryptic downstream errors swallowed by the outer `catch`. Now checks `response.ok` explicitly and returns early on failure.
+- **`personalisedCopy.ts` — fragile JSON extraction** — the regex `` /```json|```/g `` missed uppercase fences and any leading prose. Now extracts the first `{...}` object from the raw response string, making it robust to any surrounding markdown or explanatory text.
+
+### Performance
+- **`presence.ts` — O(n) JSON parses per habit tap eliminated** — `getDayStats()` called `getUser()` and `getActiveHabitsForPhase()` (both `JSON.parse`) on every iteration of every loop in `getRangeStats`, `getPresentDaysCount`, `recalculateStreak`, and `getConsecutiveMissedDays`. On a 90-day user this was ~180 JSON parses per toggle tap. Introduced a private `computeDayStats(date, today, activeHabits)` helper — user and habits are now resolved once at each call site, not per date.
+- **`learn.tsx` — `getPersonalisedCopy()` called per-row per-render** — each `HabitAccordionRow` independently called `getPersonalisedCopy()`, triggering a `JSON.parse` for every habit on every render. Lifted to the parent `LearnScreen`, fetched once, refreshed on focus, passed down as a prop.
+
+---
+
 ## 2026-05-04 — UI amendments and new features (brief v2)
 
 ### UI amendments

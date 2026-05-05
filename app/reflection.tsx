@@ -15,13 +15,7 @@ const PHASE1_QUESTIONS = [
 ];
 
 function getSundayKey(): string {
-  // Always key reflections to the current Sunday (calendar day)
-  const today = new Date();
-  const dow = today.getDay(); // 0=Sun
-  const sunday = new Date(today);
-  sunday.setDate(today.getDate() - (dow === 0 ? 0 : dow - 7 > 0 ? dow - 7 : 7 - dow));
-  // Simplest: find most recent Sunday on or before today
-  const d = new Date(today);
+  const d = new Date();
   while (d.getDay() !== 0) d.setDate(d.getDate() - 1);
   return formatDate(d);
 }

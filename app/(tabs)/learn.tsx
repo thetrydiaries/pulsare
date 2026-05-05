@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -96,24 +96,23 @@ interface AccordionRowProps {
   habit: Habit;
   isOpen: boolean;
   onToggle: (id: string) => void;
+  personalisedCopy: ReturnType<typeof getPersonalisedCopy>;
 }
 
-function HabitAccordionRow({ habit, isOpen, onToggle }: AccordionRowProps) {
+function HabitAccordionRow({ habit, isOpen, onToggle, personalisedCopy }: AccordionRowProps) {
   const fadeAnim = useRef(new Animated.Value(isOpen ? 1 : 0)).current;
-  const wasOpen = useRef(isOpen);
 
-  if (wasOpen.current !== isOpen) {
-    wasOpen.current = isOpen;
+  useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: isOpen ? 1 : 0,
       duration: 200,
       useNativeDriver: true,
     }).start();
-  }
+  }, [isOpen, fadeAnim]);
 
   const suggestedId = habit.suggestedId ?? '';
-  const defaultContent = HABIT_LEARN[suggestedId] ?? null;
-  const personalisedCopy = getPersonalisedCopy();
+  const builtInContent = HABIT_LEARN[suggestedId] ?? null;
+  const content = builtInContent ?? habit.learnContent ?? null;
   const personalisedReframe = personalisedCopy?.habitExplanations?.[suggestedId];
 
   const displayLabel = habit.userLabel ?? habit.label;
@@ -133,13 +132,21 @@ function HabitAccordionRow({ habit, isOpen, onToggle }: AccordionRowProps) {
         </Text>
       </TouchableOpacity>
 
-      {isOpen && defaultContent && (
+      {isOpen && content && (
         <Animated.View style={[accordionStyles.expanded, { opacity: fadeAnim }]}>
           <Text variant="body" color={Colors.textSecondary} size={14} style={accordionStyles.reframe}>
-            {personalisedReframe ?? defaultContent.reframe}
+            {personalisedReframe ?? content.reframe}
           </Text>
           <Text variant="label" color={Colors.textTertiary} style={accordionStyles.science}>
-            {defaultContent.science}
+            {content.science}
+          </Text>
+        </Animated.View>
+      )}
+
+      {isOpen && !content && habit.isCustom && (
+        <Animated.View style={[accordionStyles.expanded, { opacity: fadeAnim }]}>
+          <Text variant="label" color={Colors.textTertiary} style={accordionStyles.science}>
+            preparing your explainer...
           </Text>
         </Animated.View>
       )}
@@ -153,14 +160,30 @@ export default function LearnScreen() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [openHabitId, setOpenHabitId] = useState<string | null>(null);
+  const [copy, setCopy] = useState(() => getPersonalisedCopy());
 
   useFocusEffect(
     useCallback(() => {
       const u = getUser();
       setUser(u);
       if (u) setHabits(getActiveHabits(u.currentPhase));
+      setCopy(getPersonalisedCopy());
     }, [])
   );
+
+  // Poll while any custom habit is still waiting for AI-generated content
+  useEffect(() => {
+    const hasPending = habits.some((h) => h.isCustom && !h.learnContent);
+    if (!hasPending || !user) return;
+    const interval = setInterval(() => {
+      const updated = getActiveHabits(user.currentPhase);
+      setHabits(updated);
+      if (!updated.some((h) => h.isCustom && !h.learnContent)) {
+        clearInterval(interval);
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [habits, user]);
 
   function handleToggle(id: string) {
     setOpenHabitId((prev) => (prev === id ? null : id));
@@ -188,6 +211,7 @@ export default function LearnScreen() {
               habit={h}
               isOpen={openHabitId === h.id}
               onToggle={handleToggle}
+              personalisedCopy={copy}
             />
           ))}
         </View>

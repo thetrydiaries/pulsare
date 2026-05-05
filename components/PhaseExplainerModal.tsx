@@ -1,6 +1,6 @@
 import React from 'react';
-import { Modal, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Modal, View, ScrollView, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import type { Habit, Phase } from '@/types';
@@ -78,6 +78,8 @@ interface Props {
 }
 
 export default function PhaseExplainerModal({ visible, onClose, currentPhase, habits }: Props) {
+  const insets = useSafeAreaInsets();
+
   const phase1Labels = habits
     .filter((h) => h.phase === 1 && h.active)
     .map((h) => h.userLabel ?? h.label);
@@ -93,36 +95,34 @@ export default function PhaseExplainerModal({ visible, onClose, currentPhase, ha
   return (
     <Modal
       visible={visible}
+      transparent
       animationType="slide"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.safe}>
-        {/* Close — fixed outside scroll so it's always tappable */}
-        <View style={styles.closeRow}>
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.closeBtn}
-            accessibilityRole="button"
-            accessibilityLabel="close"
-          >
-            <Text variant="label" color={Colors.textTertiary} size={22}>×</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.overlay}>
+        {/* Tap backdrop to dismiss */}
+        <Pressable style={styles.backdrop} onPress={onClose} />
 
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <Text variant="serifItalic" size={28} style={styles.heading}>
-            the shape of your reset
-          </Text>
+        {/* Sheet */}
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 8 }]}>
+          {/* Drag handle */}
+          <View style={styles.handle} />
+
+          {/* Title row */}
+          <View style={styles.titleRow}>
+            <Text variant="serifItalic" size={22} style={styles.heading}>
+              the shape of your reset
+            </Text>
+          </View>
           <Text variant="label" color={Colors.textSecondary} style={styles.subheading}>
             three phases. thirteen weeks. each one builds on the last.
           </Text>
 
-          {/* Cards */}
-          <View style={styles.cards}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+          >
             <PhaseCard
               phase={1}
               currentPhase={currentPhase}
@@ -149,53 +149,83 @@ export default function PhaseExplainerModal({ visible, onClose, currentPhase, ha
               habitLabels={PHASE_3_HABITS}
               unlockLabel={currentPhase < 3 ? 'unlocks at week 9' : undefined}
             />
-          </View>
 
-          {/* Footer */}
-          <Text variant="label" color={Colors.textTertiary} style={styles.footer}>
-            phases unlock when you're ready — not on a timer.
-          </Text>
-        </ScrollView>
-      </SafeAreaView>
+            <Text variant="label" color={Colors.textTertiary} style={styles.footer}>
+              phases unlock when you're ready — not on a timer.
+            </Text>
+          </ScrollView>
 
+          {/* Done button — always visible at the bottom */}
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.doneBtn}
+            accessibilityRole="button"
+            accessibilityLabel="close"
+          >
+            <Text variant="bodySemibold" color={Colors.tealText}>done</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  scroll: {
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'transparent',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  sheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '88%',
+    paddingTop: 12,
     paddingHorizontal: 24,
-    paddingTop: 4,
-    paddingBottom: 56,
-    gap: 8,
   },
-  closeRow: {
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
+  handle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    marginBottom: 16,
   },
-  closeBtn: {
-    minWidth: 48,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+  titleRow: {
+    marginBottom: 4,
   },
   heading: {
-    marginTop: 4,
-    marginBottom: 8,
-    lineHeight: 38,
+    lineHeight: 32,
   },
   subheading: {
     lineHeight: 20,
     marginBottom: 8,
   },
-  cards: { gap: 16, marginTop: 8 },
+  scrollView: {
+    flexGrow: 0,
+  },
+  scroll: {
+    gap: 12,
+    paddingBottom: 8,
+  },
   footer: {
-    marginTop: 24,
+    marginTop: 8,
     textAlign: 'center',
     lineHeight: 20,
     fontSize: 12,
+  },
+  doneBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    marginTop: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.border,
   },
 });
 

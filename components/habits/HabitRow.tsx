@@ -35,10 +35,20 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
   const ackAnim = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(false);
   const [showRemove, setShowRemove] = useState(false);
+  const prevCompleted = useRef(completed);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
   }, []);
+
+  // Sync fill animation when `completed` is changed externally (e.g. after a load() refresh),
+  // without playing the tap animation sequence.
+  useEffect(() => {
+    if (prevCompleted.current !== completed) {
+      prevCompleted.current = completed;
+      fillAnim.setValue(completed ? 1 : 0);
+    }
+  }, [completed, fillAnim]);
 
   const displayLabel = habit.userLabel ?? habit.label;
 
@@ -85,6 +95,7 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
     }
 
     if (!completed) {
+      ackAnim.stopAnimation();
       ackAnim.setValue(0);
       Animated.sequence([
         Animated.delay(200),

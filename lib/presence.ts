@@ -1,25 +1,25 @@
 import {
   getLogEntry,
-  getAllLogDates,
   getStreakData,
   setStreakData,
   getActiveHabitsForPhase,
   getUser,
 } from './storage';
-import { getLogicalDate, dateRangeFromStart, parseDate, formatDate } from './dayBoundary';
+import { getLogicalDate, dateRangeFromStart } from './dayBoundary';
 import { isDayPresent } from './habits';
-import type { DayStats, StarState } from '@/types';
+import type { DayStats, Habit, StarState } from '@/types';
 
-// ─── Compute stats for a single date ─────────────────────────────────────────
+// ─── Internal helper: compute stats with pre-resolved context ────────────────
+// Hoists getUser/getActiveHabitsForPhase out of per-date loops.
 
-export function getDayStats(date: string): DayStats {
-  const user = getUser();
-  const phase = user?.currentPhase ?? 1;
-  const activeHabits = getActiveHabitsForPhase(phase);
+function computeDayStats(
+  date: string,
+  today: string,
+  activeHabits: Habit[],
+): DayStats {
   const entry = getLogEntry(date);
 
   if (!entry) {
-    const today = getLogicalDate();
     return {
       date,
       state: date <= today ? 'missed' : 'future',
@@ -44,18 +44,35 @@ export function getDayStats(date: string): DayStats {
   return { date, state, habitsComplete: complete, habitsTotal: activeHabits.length };
 }
 
+// ─── Public single-date helper (used by galaxy screen per-cell) ───────────────
+
+export function getDayStats(date: string): DayStats {
+  const user = getUser();
+  const phase = user?.currentPhase ?? 1;
+  const activeHabits = getActiveHabitsForPhase(phase);
+  const today = getLogicalDate();
+  return computeDayStats(date, today, activeHabits);
+}
+
 // ─── Compute stats across a date range ───────────────────────────────────────
 
 export function getRangeStats(dates: string[]): DayStats[] {
-  return dates.map(getDayStats);
+  const user = getUser();
+  const phase = user?.currentPhase ?? 1;
+  const activeHabits = getActiveHabitsForPhase(phase);
+  const today = getLogicalDate();
+  return dates.map((d) => computeDayStats(d, today, activeHabits));
 }
 
 // ─── Count present days since start ──────────────────────────────────────────
 
 export function getPresentDaysCount(startDate: string): number {
-  const dates = dateRangeFromStart(startDate);
-  return dates.filter((d) => {
-    const s = getDayStats(d);
+  const user = getUser();
+  const phase = user?.currentPhase ?? 1;
+  const activeHabits = getActiveHabitsForPhase(phase);
+  const today = getLogicalDate();
+  return dateRangeFromStart(startDate).filter((d) => {
+    const s = computeDayStats(d, today, activeHabits);
     return s.state === 'full' || s.state === 'return';
   }).length;
 }
@@ -76,15 +93,15 @@ export function recalculateStreak(): void {
   if (!user) return;
 
   const today = getLogicalDate();
-  const dates = dateRangeFromStart(user.startDate);
-  const relevantDates = dates.filter((d) => d <= today);
+  const phase = user.currentPhase;
+  const activeHabits = getActiveHabitsForPhase(phase);
+  const relevantDates = dateRangeFromStart(user.startDate).filter((d) => d <= today);
 
   let streak = 0;
-  // Walk backward from yesterday (today may be in progress)
   for (let i = relevantDates.length - 1; i >= 0; i--) {
     const d = relevantDates[i];
-    if (d === today) continue; // don't count today in streak yet
-    const s = getDayStats(d);
+    if (d === today) continue;
+    const s = computeDayStats(d, today, activeHabits);
     if (s.state === 'full' || s.state === 'return') {
       streak++;
     } else {
@@ -92,13 +109,14 @@ export function recalculateStreak(): void {
     }
   }
 
-  // If today is already present, add it
-  const todayStats = getDayStats(today);
+  const todayStats = computeDayStats(today, today, activeHabits);
   if (todayStats.state === 'full' || todayStats.state === 'return') {
     streak++;
   }
 
   const prev = getStreakData();
+  // Always update lastPresentDay when streak > 0; preserve previous value only
+  // if the streak has been broken (so it records when the last run ended).
   setStreakData({
     currentStreak: streak,
     lastPresentDay: streak > 0 ? today : prev.lastPresentDay,
@@ -112,12 +130,14 @@ export function getConsecutiveMissedDays(): number {
   if (!user) return 0;
 
   const today = getLogicalDate();
+  const phase = user.currentPhase;
+  const activeHabits = getActiveHabitsForPhase(phase);
   const dates = dateRangeFromStart(user.startDate).filter((d) => d < today);
 
   let missed = 0;
   for (let i = dates.length - 1; i >= 0; i--) {
-    const s = getDayStats(dates[i]);
-    if (s.habitsComplete === 0 && s.state !== 'return') {
+    const s = computeDayStats(dates[i], today, activeHabits);
+    if (s.state === 'missed') {
       missed++;
     } else {
       break;

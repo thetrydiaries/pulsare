@@ -28,9 +28,9 @@ export function isToday(dateStr: string): boolean {
   return dateStr === getLogicalDate();
 }
 
-/** Returns YYYY-MM-DD for N days ago (logical). */
-export function daysAgo(n: number, from: Date = new Date()): string {
-  const d = new Date(from);
+/** Returns YYYY-MM-DD for N days ago relative to the logical today. */
+export function daysAgo(n: number): string {
+  const d = parseDate(getLogicalDate());
   d.setDate(d.getDate() - n);
   return formatDate(d);
 }

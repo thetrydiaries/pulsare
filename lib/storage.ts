@@ -13,14 +13,19 @@ import type {
 // populate the cache from AsyncStorage before any synchronous reads happen.
 
 const memCache: Record<string, string> = {};
+let _initPromise: Promise<void> | null = null;
 
-export async function initStorage(): Promise<void> {
-  const keys = await AsyncStorage.getAllKeys();
-  if (!keys.length) return;
-  const pairs = await AsyncStorage.multiGet(keys as string[]);
-  for (const [key, value] of pairs) {
-    if (key && value !== null) memCache[key] = value;
-  }
+export function initStorage(): Promise<void> {
+  if (_initPromise) return _initPromise;
+  _initPromise = (async () => {
+    const keys = await AsyncStorage.getAllKeys();
+    if (!keys.length) return;
+    const pairs = await AsyncStorage.multiGet(keys as string[]);
+    for (const [key, value] of pairs) {
+      if (key && value !== null) memCache[key] = value;
+    }
+  })();
+  return _initPromise;
 }
 
 // ─── MMKV-compatible storage object (used directly by screens) ───────────────
@@ -37,11 +42,15 @@ export const storage = {
   set(key: string, value: string | boolean | number): void {
     const serialized = String(value);
     memCache[key] = serialized;
-    AsyncStorage.setItem(key, serialized);
+    AsyncStorage.setItem(key, serialized).catch((e) =>
+      console.error('[storage] setItem failed', key, e)
+    );
   },
   remove(key: string): void {
     delete memCache[key];
-    AsyncStorage.removeItem(key);
+    AsyncStorage.removeItem(key).catch((e) =>
+      console.error('[storage] removeItem failed', key, e)
+    );
   },
   getAllKeys(): string[] {
     return Object.keys(memCache);
@@ -63,12 +72,16 @@ function get<T>(key: string): T | null {
 function set<T>(key: string, value: T): void {
   const serialized = JSON.stringify(value);
   memCache[key] = serialized;
-  AsyncStorage.setItem(key, serialized);
+  AsyncStorage.setItem(key, serialized).catch((e) =>
+    console.error('[storage] setItem failed', key, e)
+  );
 }
 
 function remove(key: string): void {
   delete memCache[key];
-  AsyncStorage.removeItem(key);
+  AsyncStorage.removeItem(key).catch((e) =>
+    console.error('[storage] removeItem failed', key, e)
+  );
 }
 
 // ─── Onboarding ─────────────────────────────────────────────────────────────
@@ -79,7 +92,9 @@ export function isOnboardingComplete(): boolean {
 
 export function setOnboardingComplete(): void {
   memCache['onboardingComplete'] = 'true';
-  AsyncStorage.setItem('onboardingComplete', 'true');
+  AsyncStorage.setItem('onboardingComplete', 'true').catch((e) =>
+    console.error('[storage] setOnboardingComplete failed', e)
+  );
 }
 
 // ─── User ────────────────────────────────────────────────────────────────────

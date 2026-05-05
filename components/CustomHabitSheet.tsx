@@ -60,7 +60,8 @@ export default function CustomHabitSheet({ visible, defaultGroup, onClose, onAdd
               placeholder="e.g. no alcohol, call someone, get outside"
               placeholderTextColor={Colors.textTertiary}
               value={name}
-              onChangeText={(t) => setName(t.slice(0, 40))}
+              onChangeText={(t) => setName(t.toLowerCase().slice(0, 40))}
+              autoCapitalize="none"
               autoFocus
               returnKeyType="done"
               onSubmitEditing={handleAdd}

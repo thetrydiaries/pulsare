@@ -18,6 +18,7 @@ import PhaseExplainerModal from '@/components/PhaseExplainerModal';
 import CustomHabitSheet from '@/components/CustomHabitSheet';
 import { getUser, getLogEntry, updateLogEntry, getPersonalisedCopy, getHabits, upsertHabit } from '@/lib/storage';
 import { getActiveHabits, addCustomHabit } from '@/lib/habits';
+import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
 import {
   getLogicalDate,
   formatDate,
@@ -121,10 +122,6 @@ export default function HomeScreen() {
   const [sheetGroup, setSheetGroup] = useState<'morning' | 'evening'>('morning');
   const appState = useRef(AppState.currentState);
 
-  const today = getLogicalDate();
-  const weekDates = getWeekDates();
-  const todayIndex = getTodayIndex(weekDates);
-
   const load = useCallback(() => {
     const user = getUser();
     if (!user) return;
@@ -134,15 +131,19 @@ export default function HomeScreen() {
       return;
     }
 
+    // Recompute date values inside the callback so there's no stale closure.
+    const currentToday = getLogicalDate();
+    const currentWeekDates = getWeekDates();
+
     const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
     const activeHabits = getActiveHabits(effectivePhase);
     setHabits(activeHabits);
 
-    const entry = getLogEntry(today);
+    const entry = getLogEntry(currentToday);
     setCompleted(entry?.habits ?? {});
     setBodyWord(entry?.bodyCheckWord ?? '');
 
-    const stats = getRangeStats(weekDates);
+    const stats = getRangeStats(currentWeekDates);
     setWeekStats(stats);
 
     recalculateStreak();
@@ -153,15 +154,19 @@ export default function HomeScreen() {
 
     setShowNudge(isMissedOneDayOnly());
     setIsSunday(new Date().getDay() === 0);
-
-    if (isMissedOneDayOnly()) {
-      scheduleNeverMissTwiceNudge(user);
-    }
-  }, [today]);
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Schedule never-miss-twice nudge once per session, not on every load() call.
+  useEffect(() => {
+    const user = getUser();
+    if (user && isMissedOneDayOnly()) {
+      scheduleNeverMissTwiceNudge(user);
+    }
+  }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -182,16 +187,16 @@ export default function HomeScreen() {
   function handleToggle(id: string) {
     const next = { ...completed, [id]: !completed[id] };
     setCompleted(next);
-    updateLogEntry(today, { habits: next });
+    const t = getLogicalDate();
+    updateLogEntry(t, { habits: next });
     recalculateStreak();
     setStreakCount(getStreakData().currentStreak);
-    const stats = getRangeStats(weekDates);
-    setWeekStats(stats);
+    setWeekStats(getRangeStats(getWeekDates()));
   }
 
   function handleBodyWord(text: string) {
     setBodyWord(text);
-    updateLogEntry(today, { bodyCheckWord: text || null });
+    updateLogEntry(getLogicalDate(), { bodyCheckWord: text || null });
   }
 
   function handleRemoveHabit(habitId: string) {
@@ -205,12 +210,16 @@ export default function HomeScreen() {
   function handleAddHabit(name: string, group: 'morning' | 'evening') {
     const user = getUser();
     if (!user) return;
-    addCustomHabit(name, group, user.currentPhase);
+    const habit = addCustomHabit(name, group, user.currentPhase);
+    generateCustomHabitLearnContent(habit.id, name);
     load();
   }
 
   const user = getUser();
   if (!user) return null;
+
+  const weekDates = getWeekDates();
+  const todayIndex = getTodayIndex(weekDates);
 
   const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
   const morning = habits.filter((h) => h.group === 'morning');
@@ -270,7 +279,8 @@ export default function HomeScreen() {
           placeholder="one word — how does your body feel?"
           placeholderTextColor={Colors.textTertiary}
           value={bodyWord}
-          onChangeText={handleBodyWord}
+          onChangeText={(t) => handleBodyWord(t.toLowerCase())}
+          autoCapitalize="none"
           returnKeyType="done"
           blurOnSubmit
           accessibilityLabel="body check — optional"

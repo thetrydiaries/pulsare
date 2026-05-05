@@ -26,11 +26,17 @@ export interface User {
   startingMood: string;
 }
 
+export interface HabitLearnContent {
+  reframe: string;
+  science: string;
+}
+
 export interface Habit {
   id: string;
   label: string;
   userLabel?: string; // user-defined display name; overrides label everywhere it's shown
   microExplanation: string | null;
+  learnContent?: HabitLearnContent; // AI-generated for custom habits
   phase: Phase;
   group: HabitGroup;
   locked: boolean;

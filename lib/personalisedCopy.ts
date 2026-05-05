@@ -71,13 +71,22 @@ Rules for the copy:
       }),
     });
 
+    if (!response.ok) {
+      console.error('[personalisedCopy] API error', response.status);
+      return;
+    }
     const data = await response.json();
     const text = (data.content as { type: string; text: string }[])
       .filter((b) => b.type === 'text')
       .map((b) => b.text)
       .join('');
-    const clean = text.replace(/```json|```/g, '').trim();
-    const copy = JSON.parse(clean) as PersonalisedCopy;
+    // Extract the first {...} JSON object regardless of surrounding markdown or prose.
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) {
+      console.error('[personalisedCopy] No JSON object found in response');
+      return;
+    }
+    const copy = JSON.parse(match[0]) as PersonalisedCopy;
     setPersonalisedCopy(copy);
   } catch {
     // silent fallback — default strings used throughout the app
