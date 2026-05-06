@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-05 — Automatic lowercase input, AI explainer for custom habits
+
+### Bug fixes
+- **`index.tsx` — body check word input auto-capitalises** — the body check text field was capitalising user input by default. Added `autoCapitalize="none"` and an `onChangeText` wrapper that calls `.toLowerCase()` so input always stays lowercase.
+
+### New features
+- **`learn.tsx` — AI-generated explainer for custom habits** — when a user adds a custom habit, `generateCustomHabitLearnContent` is called immediately after creation to fetch a personalised `reframe` and `science` blurb from the Claude API (Haiku). The learn screen polls every 2 seconds until the content arrives and then displays it in the accordion, replacing the *"preparing your explainer..."* placeholder. Falls back gracefully if the API key is absent or the request fails.
+
+---
+
 ## 2026-05-05 — Bug fixes and performance (senior engineering review)
 
 ### Bug fixes
