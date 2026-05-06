@@ -16,6 +16,7 @@ import HabitRow from '@/components/habits/HabitRow';
 import WeekStrip from '@/components/habits/WeekStrip';
 import PhaseExplainerModal from '@/components/PhaseExplainerModal';
 import CustomHabitSheet from '@/components/CustomHabitSheet';
+import PastDayEditSheet from '@/components/PastDayEditSheet';
 import { getUser, getLogEntry, updateLogEntry, getPersonalisedCopy, getHabits, upsertHabit } from '@/lib/storage';
 import { getActiveHabits, addCustomHabit } from '@/lib/habits';
 import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
@@ -120,19 +121,21 @@ export default function HomeScreen() {
   const [phaseModalVisible, setPhaseModalVisible] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetGroup, setSheetGroup] = useState<'morning' | 'evening'>('morning');
+  const [editDate, setEditDate] = useState<string | null>(null);
   const appState = useRef(AppState.currentState);
 
   const load = useCallback(() => {
     const user = getUser();
     if (!user) return;
 
-    if (isFallOff()) {
+    // Recompute date values inside the callback so there's no stale closure.
+    const currentToday = getLogicalDate();
+
+    const todayEntry = getLogEntry(currentToday);
+    if (isFallOff() && !todayEntry?.isReturnDay) {
       router.replace('/falloff');
       return;
     }
-
-    // Recompute date values inside the callback so there's no stale closure.
-    const currentToday = getLogicalDate();
     const currentWeekDates = getWeekDates();
 
     const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
@@ -294,7 +297,11 @@ export default function HomeScreen() {
 
         {/* Week strip */}
         {weekStats.length === 7 && (
-          <WeekStrip days={weekStats} todayIndex={todayIndex < 0 ? 6 : todayIndex} />
+          <WeekStrip
+            days={weekStats}
+            todayIndex={todayIndex < 0 ? 6 : todayIndex}
+            onDayPress={(date) => setEditDate(date)}
+          />
         )}
 
         {/* Sunday reflection prompt */}
@@ -377,6 +384,11 @@ export default function HomeScreen() {
         defaultGroup={sheetGroup}
         onClose={() => setSheetVisible(false)}
         onAdd={handleAddHabit}
+      />
+
+      <PastDayEditSheet
+        date={editDate}
+        onClose={() => { setEditDate(null); load(); }}
       />
     </SafeAreaView>
   );

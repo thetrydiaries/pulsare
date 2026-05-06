@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-05-06 — Past day editing, falloff loop fix
+
+### Bug fixes
+- **`index.tsx` — "I'm back" button stuck in falloff loop** — after pressing "I'm back" on the falloff screen, `handleBack()` marked today as `isReturnDay` and navigated to `/(tabs)`. But `load()` on the home screen fired immediately via `useFocusEffect` and called `isFallOff()`, which only checks days *before* today — so the consecutive missed days were still there and the app redirected straight back to `/falloff`. Fixed by checking `todayEntry?.isReturnDay` before redirecting: if today is already marked as a return day, the falloff redirect is skipped.
+
+### New features
+- **Past day editing** — users can now tap any past day to edit its habit completions and body check word. Entry points are:
+  - **Home screen week strip** — tapping any day in the current week that is before today opens the edit sheet.
+  - **Galaxy screen (week and month views)** — tapping any past star (strictly before today, on or after start date) opens the edit sheet.
+- **`PastDayEditSheet` component** — new bottom modal sheet (`components/PastDayEditSheet.tsx`) shared across both entry points. Shows the full date, habit toggles for morning and evening groups, and a body check word field. Saves changes immediately on each toggle. Calls `recalculateStreak()` on close so streak and presence stats update correctly.
+- **`WeekStrip` — optional `onDayPress` prop** — past-day cells become `TouchableOpacity` when `onDayPress` is provided; today and future cells remain non-interactive. Fully backward-compatible.
+
+---
+
 ## 2026-05-05 — Automatic lowercase input, AI explainer for custom habits
 
 ### Bug fixes

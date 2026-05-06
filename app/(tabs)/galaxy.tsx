@@ -5,6 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import StarMark from '@/components/galaxy/StarMark';
+import PastDayEditSheet from '@/components/PastDayEditSheet';
 import { getUser } from '@/lib/storage';
 import {
   dateRangeFromStart,
@@ -115,30 +116,31 @@ export default function GalaxyScreen() {
   const [presentDays, setPresentDays] = useState(0);
   const [presenceRate, setPresenceRate] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [editDate, setEditDate] = useState<string | null>(null);
 
   const insets = useSafeAreaInsets();
   const canvasPaddingH = insets.left + 20;
 
   const user = getUser();
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!user) return;
-      const dates = dateRangeFromStart(user.startDate);
-      const map: Record<string, DayStats> = {};
-      for (const d of dates) {
-        map[d] = getDayStats(d);
-      }
-      const monthDates = getMonthDates();
-      for (const d of monthDates) {
-        if (!map[d]) map[d] = { date: d, state: 'future', habitsComplete: 0, habitsTotal: 0 };
-      }
-      setStats(map);
-      setPresentDays(getPresentDaysCount(user.startDate));
-      setPresenceRate(getPresenceRate(user.startDate));
-      setStreak(getStreakData().currentStreak);
-    }, [user?.startDate])
-  );
+  const loadStats = useCallback(() => {
+    if (!user) return;
+    const dates = dateRangeFromStart(user.startDate);
+    const map: Record<string, DayStats> = {};
+    for (const d of dates) {
+      map[d] = getDayStats(d);
+    }
+    const monthDates = getMonthDates();
+    for (const d of monthDates) {
+      if (!map[d]) map[d] = { date: d, state: 'future', habitsComplete: 0, habitsTotal: 0 };
+    }
+    setStats(map);
+    setPresentDays(getPresentDaysCount(user.startDate));
+    setPresenceRate(getPresenceRate(user.startDate));
+    setStreak(getStreakData().currentStreak);
+  }, [user?.startDate]);
+
+  useFocusEffect(loadStats);
 
   if (!user) return null;
 
@@ -193,12 +195,10 @@ export default function GalaxyScreen() {
               const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
               const offset = deterministicOffset(d);
               const isToday = d === today;
+              const isPast = d < today && d >= user.startDate;
               const labelColor = isToday ? Colors.textSecondary : Colors.textTertiary;
-              return (
-                <View
-                  key={d}
-                  style={[styles.weekCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
-                >
+              const cellContent = (
+                <>
                   <Text variant="micro" style={[styles.weekDayLetter, { color: labelColor }]}>
                     {DAY_LETTERS[i]}
                   </Text>
@@ -208,6 +208,28 @@ export default function GalaxyScreen() {
                   <Text variant="micro" style={[styles.weekDateNum, { color: labelColor }]}>
                     {parseDate(d).getDate()}
                   </Text>
+                </>
+              );
+              if (isPast) {
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.weekCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                    onPress={() => setEditDate(d)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`edit ${d}`}
+                    activeOpacity={0.6}
+                  >
+                    {cellContent}
+                  </TouchableOpacity>
+                );
+              }
+              return (
+                <View
+                  key={d}
+                  style={[styles.weekCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                >
+                  {cellContent}
                 </View>
               );
             })}
@@ -230,14 +252,32 @@ export default function GalaxyScreen() {
                   if (!d) return <View key={`pad-${wi}-${ci}`} style={styles.gridCell} />;
                   const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
                   const offset = deterministicOffset(d);
+                  const isPast = d < today && d >= user.startDate;
+                  const starContent = (
+                    <View style={styles.monthStarContainer}>
+                      <StarMark state={s.state} />
+                    </View>
+                  );
+                  if (isPast) {
+                    return (
+                      <TouchableOpacity
+                        key={d}
+                        style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                        onPress={() => setEditDate(d)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`edit ${d}`}
+                        activeOpacity={0.6}
+                      >
+                        {starContent}
+                      </TouchableOpacity>
+                    );
+                  }
                   return (
                     <View
                       key={d}
                       style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
                     >
-                      <View style={styles.monthStarContainer}>
-                        <StarMark state={s.state} />
-                      </View>
+                      {starContent}
                     </View>
                   );
                 })}
@@ -270,6 +310,11 @@ export default function GalaxyScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <PastDayEditSheet
+        date={editDate}
+        onClose={() => { setEditDate(null); loadStats(); }}
+      />
     </SafeAreaView>
   );
 }
