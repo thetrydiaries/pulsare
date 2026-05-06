@@ -41,3 +41,6 @@ yarn-error.*
 /ios/*
 /android
 !/ios/.xcode.env
+!/ios/Pulsare.xcodeproj/
+/ios/Pulsare.xcodeproj/*
+!/ios/Pulsare.xcodeproj/project.pbxproj
