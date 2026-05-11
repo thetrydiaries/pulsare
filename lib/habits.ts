@@ -8,6 +8,8 @@ import { getHabits, upsertHabit, setHabits, storage } from './storage';
 export const MICRO_EXPLANATIONS: Record<string, string> = {
   'wake-anchor':
     'your body clock regulates everything else. this is where it starts.',
+  'morning-light':
+    'bright light within 30 minutes of waking sets your circadian clock for the whole day.',
   'water-before-coffee':
     'cortisol peaks at wake. caffeine on dehydration amplifies the spike.',
   'morning-movement':
@@ -71,6 +73,9 @@ export function initPhase1Habits(user: User): void {
 
   const wakeAnchor = makeHabit('wake-anchor', 'wake up alarm', 1, 'morning', true);
   habits[wakeAnchor.id] = wakeAnchor;
+
+  const morningLight = makeHabit('morning-light', 'morning light', 1, 'morning', false);
+  habits[morningLight.id] = morningLight;
 
   const water = makeHabit('water-before-coffee', 'water before coffee', 1, 'morning', true);
   habits[water.id] = water;

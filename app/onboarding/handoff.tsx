@@ -79,7 +79,7 @@ export default function HandoffScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={13} current={12} />
+        <PipIndicator total={13} current={13} />
 
         <View style={styles.content}>
           <Text variant="serif" size={28} style={styles.headline}>
@@ -92,6 +92,7 @@ export default function HandoffScreen() {
 
           <View style={styles.summary}>
             <SummaryRow label="wake at" value={formatTime(wakeTime)} />
+            <SummaryRow label="morning light" value="within 30 min" />
             <SummaryRow label={movement} value="before midday" />
             <SummaryRow label="2 minutes of breathing" value="any time" />
             <SummaryRow label="water before coffee" value="every morning" />

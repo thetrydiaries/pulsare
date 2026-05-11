@@ -151,7 +151,7 @@ export default function PhaseExplainerModal({ visible, onClose, currentPhase, ha
             />
 
             <Text variant="label" color={Colors.textTertiary} style={styles.footer}>
-              phases unlock when you're ready — not on a timer.
+              phases unlock on a fixed schedule — the pacing is part of the protocol.
             </Text>
           </ScrollView>
 

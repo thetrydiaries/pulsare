@@ -23,7 +23,7 @@ export default function StartDateScreen() {
   function handleNext() {
     const startDate = choice === 'today' ? today : tomorrow;
     storage.set('onboarding.startDate', startDate);
-    router.push('/onboarding/handoff');
+    router.push('/onboarding/intentions');
   }
 
   return (

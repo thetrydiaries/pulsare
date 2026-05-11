@@ -20,7 +20,7 @@ Nothing in the codebase suggests a paywall, subscription, or monetisation path. 
 
 The first week has high novelty. But there's no mechanic specifically designed to pull users through the weeks 2–3 trough — the period where habits aren't automatic yet but the novelty is gone. The weekly reflection and phase explainer exist but are passive. Something active — a mid-week check-in prompt, a milestone acknowledgement at day 14, a personalised insight from the data already collected — would materially improve 30-day retention.
 
-**4. Phase Unlock Is Fuzzy**
+**4. Phase Unlock Is Fuzzy** ✓ *implemented — copy updated to "phases unlock on a fixed schedule — the pacing is part of the protocol."*
 
 The modal says phases "unlock when you're ready — not on a timer" but the code unlocks on a fixed week schedule. That copy creates an expectation of flexibility that doesn't exist. Either make it truly adaptive (unlock phase 2 only after X% presence in phase 1) or change the copy. Right now it's a promise the app isn't keeping.
 
@@ -56,7 +56,7 @@ The protocol's foundation is solid — wake anchor, water before coffee, movemen
 
 ### Critical Gaps
 
-**1. Light is the most powerful circadian anchor and it's absent**
+**1. Light is the most powerful circadian anchor and it's absent** ✓ *implemented — "morning light" added as a Phase 1 morning habit (after wake-anchor, before water-before-coffee), with micro-explanation and handoff summary entry.*
 
 The app tracks wake time but never mentions morning bright light exposure. The suprachiasmatic nucleus (SCN) — the master circadian clock — is entrained almost entirely by light, not by wake time alone. Waking at 6am in a dark room does very little for circadian anchoring. Getting outdoor light (or 10,000 lux lamp) within 30 minutes of waking is the single highest-evidence intervention for circadian health. It suppresses residual melatonin, triggers the cortisol awakening response (CAR), and sets adenosine clearance timing for the whole day.
 
@@ -83,7 +83,7 @@ Different protocols have completely different neurological effects:
 
 Treating all breathwork as equivalent is like treating a 2-minute walk and a sprint interval session as the same nervous system input. The app needs to recommend a specific protocol per use case (morning alertness vs. evening wind-down) and explain why they're different.
 
-**4. No implementation intentions**
+**4. No implementation intentions** ✓ *implemented — new onboarding screen (step 12/13) showing 4 pre-built if-then stack cards using the user's actual habit choices. Inserted between start-date and handoff.*
 
 Gollwitzer's research (1999, replicated many times) shows that "if-then" planning — *"After I wake up, I will drink water before leaving my bedroom"* — increases follow-through by 200–300% compared to intention alone. The mechanism is neurological: implementation intentions pre-load the behavior into working memory, so the cue automatically triggers the routine without requiring deliberate prefrontal cortex activation.
 
