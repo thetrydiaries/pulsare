@@ -17,7 +17,7 @@ const COMPLETION_FALLBACKS: Record<string, string> = {
   'wake-anchor': 'the anchor holds.',
   'water-before-coffee': 'before the caffeine. good.',
   'morning-movement': 'signal sent.',
-  'nervous-system-reset': "two minutes. that's all it needed.",
+  'nervous-system-reset': "two minutes. that's all is needed.",
   'evening-anchor': 'you ended the day with intention.',
 };
 

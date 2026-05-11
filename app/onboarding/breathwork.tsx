@@ -6,12 +6,49 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage, setOnboardingLastScreen } from '@/lib/storage';
+import { storage, setOnboardingLastScreen, getUser } from '@/lib/storage';
+import { daysSinceStart, formatDate } from '@/lib/dayBoundary';
+
+function getCurrentTechnique(): 'physiological-sigh' | 'cyclic-sigh' | 'box-breathing' {
+  const user = getUser();
+  const startDateStr = user?.startDate ?? storage.getString('onboarding.startDate') ?? formatDate(new Date());
+  const weekNum = Math.max(1, Math.ceil(daysSinceStart(startDateStr) / 7));
+  if (weekNum <= 1) return 'physiological-sigh';
+  if (weekNum <= 2) return 'cyclic-sigh';
+  return 'box-breathing';
+}
+
+const TECHNIQUE_DESCRIPTIONS: Record<'physiological-sigh' | 'cyclic-sigh' | 'box-breathing', { name: string; lines: string[] }> = {
+  'physiological-sigh': {
+    name: 'physiological sigh',
+    lines: [
+      'two short inhales through the nose, then one long exhale through the mouth. that\'s it. two minutes.',
+      'it\'s the fastest known way to activate your parasympathetic nervous system — faster than meditation, faster than walking. you\'ll be reminded once a day.',
+    ],
+  },
+  'cyclic-sigh': {
+    name: 'cyclic sighing',
+    lines: [
+      'one slow inhale through the nose for four seconds, then a long exhale through the mouth for eight seconds. longer out than in. three minutes.',
+      'the extended exhale activates your vagus nerve and lowers your heart rate — one of the most reliable ways to shift your nervous system. you\'ll be reminded once a day.',
+    ],
+  },
+  'box-breathing': {
+    name: 'box breathing',
+    lines: [
+      'four counts in, four counts hold, four counts out, four counts hold. equal sides. four minutes.',
+      'used by military and high-performance athletes to regulate arousal and sharpen focus. trains your prefrontal cortex to stay online under pressure. you\'ll be reminded once a day.',
+    ],
+  },
+};
 
 export default function BreathworkScreen() {
   const [experience, setExperience] = useState<'yes' | 'no' | null>(null);
   const [practice, setPractice] = useState('');
   const [userLabel, setUserLabel] = useState('');
+
+  const technique = getCurrentTechnique();
+  const techniqueDesc = TECHNIQUE_DESCRIPTIONS[technique];
 
   function handleNext() {
     if (!experience) return;
@@ -61,12 +98,14 @@ export default function BreathworkScreen() {
 
           {experience === 'no' && (
             <View style={styles.explainer}>
-              <Text variant="body" color={Colors.textSecondary} style={styles.explainerText}>
-                we'll use something called a physiological sigh. two short inhales through the nose, then one long exhale through the mouth. that's it. two minutes.
+              <Text variant="bodySemibold" color={Colors.textSecondary} style={styles.explainerText}>
+                {techniqueDesc.name}
               </Text>
-              <Text variant="body" color={Colors.textSecondary} style={styles.explainerText}>
-                it's the fastest known way to activate your parasympathetic nervous system — faster than meditation, faster than walking. you'll be reminded once a day.
-              </Text>
+              {techniqueDesc.lines.map((line, i) => (
+                <Text key={i} variant="body" color={Colors.textSecondary} style={styles.explainerText}>
+                  {line}
+                </Text>
+              ))}
             </View>
           )}
 

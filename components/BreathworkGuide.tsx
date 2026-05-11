@@ -197,12 +197,18 @@ export default function BreathworkGuide({ visible, technique: techniqueKey, onDi
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, techniqueKey, reduceMotion]);
 
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => { onDismissRef.current = onDismiss; }, [onDismiss]);
+
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 10,
+      // Claim touch on start; TouchableOpacity children still win via bubble-order priority
+      onStartShouldSetPanResponder: () => true,
+      // Don't let native gesture recognizers steal the touch once claimed
+      onPanResponderTerminationRequest: () => false,
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 60) {
-          onDismiss();
+          onDismissRef.current();
         }
       },
     })
