@@ -6,15 +6,16 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 export default function ProjectScreen() {
-  const [project, setProject] = useState('');
+  const [project, setProject] = useState(() => storage.getString('onboarding.project') ?? '');
 
   function handleNext() {
     if (project.trim()) {
       storage.set('onboarding.project', project.trim());
     }
+    setOnboardingLastScreen(10);
     router.push('/onboarding/start-date');
   }
 

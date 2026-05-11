@@ -24,6 +24,7 @@ export interface User {
   projectName: string | null;
   notificationTimes: NotificationTimes;
   startingMood: string;
+  breathworkDefault?: 'physiological-sigh' | 'cyclic-sigh' | 'box-breathing' | 'rotating' | null;
 }
 
 export interface HabitLearnContent {
@@ -44,6 +45,8 @@ export interface Habit {
   suggestedId: string | null;
   active: boolean;
   createdAt: string; // ISO timestamp
+  customNotificationTime?: string | null; // HH:MM — only on custom habits
+  personalReason?: string | null; // "why does this matter to you" — drives Learn accordion body
 }
 
 export interface PersonalisedCopy {
@@ -55,6 +58,17 @@ export interface PersonalisedCopy {
     evening: string[];
     latenight: string[];
   };
+  milestoneGreetings?: {
+    day3: string;
+    day7: string;
+    day21: string;
+  };
+  breathworkIntros?: {
+    'physiological-sigh': string;
+    'cyclic-sigh': string;
+    'box-breathing': string;
+  };
+  shownMilestones?: string[];
 }
 
 export interface HabitLogEntry {

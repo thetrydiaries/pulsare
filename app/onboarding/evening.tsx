@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 import type { EveningHabitType } from '@/types';
 
 const PRESETS: { type: EveningHabitType; label: string; shortLabel: string }[] = [
@@ -50,6 +50,7 @@ export default function EveningScreen() {
     if (userLabel.trim()) {
       storage.set('onboarding.eveningUserLabel', userLabel.trim());
     }
+    setOnboardingLastScreen(7);
     router.push('/onboarding/custom-habit');
   }
 

@@ -12,15 +12,16 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 export default function NameScreen() {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => storage.getString('onboarding.name') ?? '');
 
   function handleNext() {
     const trimmed = name.trim();
     if (!trimmed) return;
     storage.set('onboarding.name', trimmed);
+    setOnboardingLastScreen(1);
     router.push('/onboarding/mood');
   }
 

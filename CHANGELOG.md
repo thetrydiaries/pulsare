@@ -1,5 +1,84 @@
 # Changelog
 
+## 2026-05-11 — Progressive depth, breathwork guide, galaxy anchors, and habit upgrades (brief v3)
+
+### UI amendments
+
+- **Custom habit editing (UI 1A)** — long-pressing a custom habit row now reveals two inline options: *"edit"* (above) and *"remove this habit"* (below). Tapping "edit" opens the same `CustomHabitSheet` bottom sheet pre-filled with the habit's current label and group. The habit ID is unchanged on save — log history is unaffected.
+- **Custom habit notifications (UI 1B)** — the custom habit bottom sheet gains an optional *"add a reminder"* toggle. When enabled, a time picker appears defaulting to 90 minutes after wake time (morning) or wind-down time (evening). Notification copy: *"[habit label]. just this."* Scheduled via `expo-notifications` under the identifier `custom-habit`. Only one custom habit notification active at a time — adding a second shows an inline warning: *"you already have a reminder set for [habit]. adding this will replace it."* Custom habit notification is preserved when main notifications are rescheduled (e.g. from profile screen) by re-applying it at the end of `scheduleAllNotifications`.
+- **Custom habit personal reason (UI 1C)** — a second optional field: *"why does this matter to you?"* (80 char max, placeholder *"for me, because..."*). Stored as `personalReason` on the habit record. Drives the Learn accordion body for that habit. If left blank, no Learn entry is shown — no gap or placeholder.
+- **Onboarding resume from last screen (UI 2)** — `lastCompletedScreen` is written to storage at every screen advance (screens 1–12). On cold open, `app/index.tsx` reads this value and routes directly to the next uncompleted screen. Initial state for all screens is now pre-filled from storage where applicable (name, mood, wake time, project), so no data re-entry is required on resume. The `onboarding` key is not deleted on completion.
+
+### New features
+
+- **Week layer label — home screen (Feature 8A)** — a second line appears beneath the phase label in tertiary text (Outfit 300) for Phase 1 weeks 1–3: *"week 1 · presence"*, *"week 2 · timing"*, *"week 3 · stacking"*. Disappears from Phase 2 onward. Not tappable.
+- **Milestone greetings (Feature 8D)** — on days 3, 7, and 21 since start date, a personalised greeting replaces the standard rotation for one appearance only. Tracked in `shownMilestones[]` on the `personalisedCopy` MMKV object. AI-generated with fallbacks: *"three days. something has started."* / *"one week. the anchor is holding."* / *"three weeks. that's neuroplasticity."* Standard rotation resumes the next day.
+- **Learn screen concept cards replaced (Feature 8B)** — the three Phase 1 weekly concept cards (previously: circadian rhythm / cortisol awakening response / neuroplasticity) are replaced with three depth-layer cards that map to the weekly progression: **week 1 — presence**, **week 2 — timing**, **week 3 — stacking**. Each card retains the same format (title, one-sentence definition, 3–4 paragraphs, "new concept in N days" footer). Galaxy concept cards updated to match.
+- **Anchoring stack pills — Week 3 Learn card (Feature 8C)** — the Week 3 concept card body ends with a *"your anchoring stack"* section. A horizontal scrollable row of pill cards shows the user's personalised if-then statements (pulled from the onboarding intentions screen). Pill style: Outfit 300, tertiary text, `#141414` surface, `#1c1c1c` 1px border, 12px corner radius. Read-only.
+- **Breathwork guide screen (Feature 9)** — a full-screen modal accessible from the breathwork habit row via a subtle *"guide"* label (separate tap target from the completion circle). The guide shows: technique name (Playfair italic), purpose line (personalised or fallback), animated breath circle (120–200pt, `useNativeDriver: false`), phase label, phase countdown timer, and round counter. Three prescribed techniques rotate weekly across Phase 1:
+  - Week 1: **physiological sigh** — double inhale (1.5s + 0.5s) + 4s exhale, 2 min minimum, ~20 rounds
+  - Week 2: **cyclic sighing** — 4s inhale + 8s exhale, 3 min minimum, ~15 rounds
+  - Week 3: **box breathing** — 4s inhale + 4s hold + 4s exhale + 4s hold, 4 min minimum, ~15 rounds
+  - *"done"* button appears only after the minimum session time has elapsed. Completing via "done" marks the breathwork habit as complete. Swiping down before "done" does not complete the habit. Reduce-motion: static circle at mid-size, text-only phase labels.
+- **Breathwork library — Learn screen (Feature 9)** — the breathwork accordion entry gains a *"breathwork library"* sub-section beneath the science copy. Technique cards unlock progressively by week (week 1: physiological sigh only; week 2 adds cyclic sigh; week 3 adds box breathing). Each card: technique name, 1-line purpose, *"try it →"* link that opens the guide without the habit-completion affordance. 4-7-8 shown as a locked card for non-evening-breathwork users.
+- **Phase 2 breathwork interstitial (Feature 9)** — before the standard Phase 2 unlock prompt, a new screen asks *"you've tried three approaches. which felt most useful?"* Three technique tiles + *"I'll keep rotating"*. Selection stored as `breathworkDefault` on the user object.
+- **Galaxy anchors tab (Feature 10)** — a fourth tab *"anchors"* added to the galaxy screen (week / month / year / anchors). Each row shows: full star PNG (20×20pt) left-aligned, habit label (Outfit 400), lifetime completion count (Playfair Display 400, 28pt, right-aligned), *"times"* label below count, and a 7-day sparkline (Mon–Sun, 12×12pt stars, today 14×14pt). Protocol habits listed first in order, then custom habits. Rows separated by 0.5px `#1c1c1c` rule. Empty state: *"your first completion will appear here."* Aggregation reads from `habitLog` at tab focus via `useFocusEffect`, cached in component state.
+- **Stats row repositioned (Feature 10)** — the three-number stats row (days present / presence rate / current streak) moves from below the star canvas to above the tab row, giving it permanent visibility across all tabs.
+- **Body check word pattern — weekly reflection (Feature 11)** — on the Sunday reflection screen, between the week's body check words and the first question, a single italic line surfaces the week's word pattern. Logic: mode of the 7 body check words (case-insensitive). If < 3 words logged, line is omitted. If no repeats: *"seven different words this week."* Otherwise: *"[word] shows up most this week."* No storage writes required — reads from `habitLog[date].bodyCheckWord`.
+
+### AI copy generation
+
+- **Extended `personalisedCopy.ts` prompt** — two new fields added to the JSON response:
+  - `milestoneGreetings` — `{ day3, day7, day21 }`: short lowercase strings (3–10 words each), one per milestone. User's name included in at least one.
+  - `breathworkIntros` — `{ physiological-sigh, cyclic-sigh, box-breathing }`: one line per technique, max 10 words, displayed below technique name in the guide screen.
+- **Fallback strings** — used when `personalisedCopy` key is absent or API fails:
+  - Day 3: *"three days. something has started."*
+  - Day 7: *"one week. the anchor is holding."*
+  - Day 21: *"three weeks. that's neuroplasticity."*
+  - Physiological sigh: *"the fastest reset. two breaths is enough."*
+  - Cyclic sigh: *"longer exhale. vagus nerve. three minutes."*
+  - Box breathing: *"equal sides. prefrontal cortex on. four minutes."*
+
+### Data model additions
+
+- `Habit.customNotificationTime?: string | null` — HH:MM notification time for custom habits
+- `Habit.personalReason?: string | null` — user's stated reason; drives Learn accordion body
+- `User.breathworkDefault?: 'physiological-sigh' | 'cyclic-sigh' | 'box-breathing' | 'rotating' | null` — set at Phase 2 unlock
+- `PersonalisedCopy.milestoneGreetings?`, `PersonalisedCopy.breathworkIntros?`, `PersonalisedCopy.shownMilestones?` — new keys on existing object
+- `storage.getOnboardingLastScreen()` / `setOnboardingLastScreen(n)` — new helpers for onboarding resume
+
+---
+
+## Next session — what to build
+
+### Phase 2 unlock flow (blocking Feature 9 interstitial)
+
+The Phase 2 breathwork interstitial (`breathworkDefault` selection screen) is spec'd and the data model is ready, but it has nowhere to hook into. There is currently no code that transitions `user.currentPhase` from 1 → 2, no unlock screen, and no "standard unlock prompt." The interstitial is described in the brief as appearing *before* that standard prompt.
+
+**What needs to be built first:**
+1. Automated phase advancement — at week 4 (day 22+), detect on app open that the user is eligible for Phase 2 and transition `user.currentPhase` to 2 via `setUser`.
+2. Standard Phase 2 unlock screen/modal — a brief moment of acknowledgement before handing off to the interstitial. (The `PhaseExplainerModal` currently shows phase info informally via the phase label tap — that's not the unlock flow.)
+3. Breathwork interstitial — the existing `breathworkDefault` type on `User` is ready; the screen just needs building and wiring into the unlock sequence.
+
+### Year tab on galaxy screen
+
+The brief specifies tab order as **week / month / year / anchors** (with "anchors" as the *fourth* tab). The year tab does not exist — the current implementation is week / month / anchors. Year tab needs to be designed and built before anchors is repositioned as the fourth slot.
+
+### Remaining onboarding pre-fill gaps
+
+`movement.tsx`, `breathwork.tsx`, `evening.tsx`, and `notifications.tsx` save progress markers but do not pre-fill their selected state on resume. These screens should restore the user's previous choice visually when the onboarding flow is resumed mid-way.
+
+### Testing pass against brief v3 checklist
+
+Several checklist items have dependencies on physical device or time-based conditions that weren't verifiable during implementation:
+- Custom habit notification fires at the correct time (requires setting a 1-minute-from-now time and confirming it fires)
+- Milestone greetings fire exactly once on days 3, 7, 21 — tested via developer mode retroactive start date
+- `shownMilestones` persists across app closes
+- Breathwork guide swipe-down does not complete the habit — tab circle remains incomplete on return
+- Reduce-motion: breathwork guide shows static circle, no animation
+
+---
+
 ## 2026-05-06 — Past day editing, falloff loop fix
 
 ### Bug fixes

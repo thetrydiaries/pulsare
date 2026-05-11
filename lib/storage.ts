@@ -97,6 +97,18 @@ export function setOnboardingComplete(): void {
   );
 }
 
+// Returns -1 if no progress saved.
+export function getOnboardingLastScreen(): number {
+  const raw = memCache['onboarding.lastCompletedScreen'];
+  if (!raw) return -1;
+  const n = parseInt(raw, 10);
+  return isNaN(n) ? -1 : n;
+}
+
+export function setOnboardingLastScreen(screen: number): void {
+  storage.set('onboarding.lastCompletedScreen', String(screen));
+}
+
 // ─── User ────────────────────────────────────────────────────────────────────
 
 export function getUser(): User | null {

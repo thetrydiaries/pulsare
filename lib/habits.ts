@@ -165,6 +165,8 @@ export function addCustomHabit(
   label: string,
   group: HabitGroup,
   phase: Phase,
+  customNotificationTime?: string | null,
+  personalReason?: string | null,
 ): Habit {
   const habit: Habit = {
     id: `habit_${uuidv4()}`,
@@ -177,7 +179,32 @@ export function addCustomHabit(
     suggestedId: null,
     active: true,
     createdAt: new Date().toISOString(),
+    customNotificationTime: customNotificationTime ?? null,
+    personalReason: personalReason ?? null,
   };
   upsertHabit(habit);
   return habit;
+}
+
+// ─── Edit custom habit ────────────────────────────────────────────────────────
+
+export function editCustomHabit(
+  habitId: string,
+  label: string,
+  group: HabitGroup,
+  customNotificationTime: string | null,
+  personalReason: string | null,
+): void {
+  const habits = getHabits();
+  const existing = habits[habitId];
+  if (!existing || !existing.isCustom) return;
+  const updated: Habit = {
+    ...existing,
+    label,
+    group,
+    customNotificationTime,
+    personalReason,
+  };
+  habits[habitId] = updated;
+  setHabits(habits);
 }

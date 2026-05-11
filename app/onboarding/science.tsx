@@ -6,8 +6,14 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
+import { setOnboardingLastScreen } from '@/lib/storage';
 
 export default function ScienceScreen() {
+  function handleNext() {
+    setOnboardingLastScreen(3);
+    router.push('/onboarding/wake-time');
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
@@ -27,10 +33,7 @@ export default function ScienceScreen() {
           </Text>
         </ScrollView>
 
-        <Button
-          label="that makes sense"
-          onPress={() => router.push('/onboarding/wake-time')}
-        />
+        <Button label="that makes sense" onPress={handleNext} />
       </View>
     </SafeAreaView>
   );

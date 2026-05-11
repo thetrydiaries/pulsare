@@ -7,7 +7,7 @@ import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import TimePicker from '@/components/ui/TimePicker';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 import { addMinutes } from '@/lib/dayBoundary';
 
 export default function NotificationsScreen() {
@@ -20,6 +20,7 @@ export default function NotificationsScreen() {
     storage.set('onboarding.notif.morning', morning);
     storage.set('onboarding.notif.movement', movement);
     storage.set('onboarding.notif.windDown', windDown);
+    setOnboardingLastScreen(9);
     router.push('/onboarding/project');
   }
 

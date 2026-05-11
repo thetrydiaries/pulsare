@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import type { User } from '@/types';
+import { getHabits } from './storage';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -82,6 +83,27 @@ export async function scheduleAllNotifications(user: User): Promise<void> {
     wdH,
     wdM,
   );
+
+  // Re-apply any existing custom habit notification
+  const habits = getHabits();
+  const customWithNotif = Object.values(habits).find(
+    (h) => h.isCustom && h.active && h.customNotificationTime,
+  );
+  if (customWithNotif?.customNotificationTime) {
+    const { hour: ch, minute: cm } = parseTime(customWithNotif.customNotificationTime);
+    const displayLabel = customWithNotif.userLabel ?? customWithNotif.label;
+    await scheduleDailyNotification('custom-habit', 'Pulsare', `${displayLabel}. just this.`, ch, cm);
+  }
+}
+
+export async function scheduleCustomHabitNotification(label: string, hhmm: string): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync('custom-habit').catch(() => {});
+  const { hour, minute } = parseTime(hhmm);
+  await scheduleDailyNotification('custom-habit', 'Pulsare', `${label}. just this.`, hour, minute);
+}
+
+export async function cancelCustomHabitNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync('custom-habit').catch(() => {});
 }
 
 export async function scheduleNeverMissTwiceNudge(user: User): Promise<void> {

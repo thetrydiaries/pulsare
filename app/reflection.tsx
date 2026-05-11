@@ -20,9 +20,13 @@ function getSundayKey(): string {
   return formatDate(d);
 }
 
+function isSunday(): boolean {
+  return new Date().getDay() === 0;
+}
+
 function getWeekBodyWords(): string[] {
   const today = new Date();
-  const dow = (today.getDay() + 6) % 7; // Mon=0
+  const dow = (today.getDay() + 6) % 7;
   const monday = new Date(today);
   monday.setDate(today.getDate() - dow);
   return Array.from({ length: 7 }, (_, i) => {
@@ -34,6 +38,26 @@ function getWeekBodyWords(): string[] {
   });
 }
 
+// Returns "X shows up most this week." or "seven different words this week."
+// Returns null if fewer than 3 words logged or only shown on Sundays.
+function getBodyWordPattern(words: string[]): string | null {
+  if (!isSunday()) return null;
+  const logged = words.filter((w) => w !== '—').map((w) => w.toLowerCase().trim());
+  if (logged.length < 3) return null;
+  const freq: Record<string, number> = {};
+  const lastSeen: Record<string, number> = {};
+  for (let i = 0; i < logged.length; i++) {
+    const w = logged[i];
+    freq[w] = (freq[w] ?? 0) + 1;
+    lastSeen[w] = i;
+  }
+  const maxCount = Math.max(...Object.values(freq));
+  if (maxCount < 2) return 'seven different words this week.';
+  const topWords = Object.keys(freq).filter((w) => freq[w] === maxCount);
+  const mode = topWords.sort((a, b) => lastSeen[b] - lastSeen[a])[0];
+  return `${mode} shows up most this week.`;
+}
+
 export default function ReflectionScreen() {
   const user = getUser();
   const sundayKey = getSundayKey();
@@ -43,6 +67,7 @@ export default function ReflectionScreen() {
     return saved?.answers ?? Array(questions.length).fill('');
   });
   const bodyWords = getWeekBodyWords();
+  const bodyWordPattern = getBodyWordPattern(bodyWords);
 
   function handleAnswer(i: number, text: string) {
     const next = [...answers];
@@ -81,6 +106,17 @@ export default function ReflectionScreen() {
             {bodyWords.join(' · ')}
           </Text>
         </View>
+
+        {/* Body word pattern — Sundays only, ≥3 words */}
+        {bodyWordPattern && (
+          <Text
+            variant="body"
+            color={Colors.textSecondary}
+            style={styles.bodyPattern}
+          >
+            {bodyWordPattern}
+          </Text>
+        )}
 
         {/* Questions */}
         <View style={styles.questions}>
@@ -123,6 +159,7 @@ const styles = StyleSheet.create({
   },
   bodyIntro: { lineHeight: 18 },
   bodyWords: { lineHeight: 24, fontSize: 14 },
+  bodyPattern: { fontStyle: 'italic', fontFamily: 'Outfit_300Light', lineHeight: 22 },
   questions: { gap: 24 },
   questionBlock: { gap: 10 },
   questionText: { lineHeight: 24 },

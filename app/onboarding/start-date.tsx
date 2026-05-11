@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 import { formatDate } from '@/lib/dayBoundary';
 
 export default function StartDateScreen() {
@@ -23,6 +23,7 @@ export default function StartDateScreen() {
   function handleNext() {
     const startDate = choice === 'today' ? today : tomorrow;
     storage.set('onboarding.startDate', startDate);
+    setOnboardingLastScreen(11);
     router.push('/onboarding/intentions');
   }
 

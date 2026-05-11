@@ -17,27 +17,22 @@ import WeekStrip from '@/components/habits/WeekStrip';
 import PhaseExplainerModal from '@/components/PhaseExplainerModal';
 import CustomHabitSheet from '@/components/CustomHabitSheet';
 import PastDayEditSheet from '@/components/PastDayEditSheet';
-import { getUser, getLogEntry, updateLogEntry, getPersonalisedCopy, getHabits, upsertHabit } from '@/lib/storage';
-import { getActiveHabits, addCustomHabit } from '@/lib/habits';
+import BreathworkGuide from '@/components/BreathworkGuide';
+import type { TechniqueKey } from '@/components/BreathworkGuide';
+import {
+  getUser, getLogEntry, updateLogEntry, getPersonalisedCopy,
+  getHabits, upsertHabit, setPersonalisedCopy,
+} from '@/lib/storage';
+import { getActiveHabits, addCustomHabit, editCustomHabit } from '@/lib/habits';
 import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
 import {
-  getLogicalDate,
-  formatDate,
-  timeIsAtOrAfter,
-  currentTime,
-  subtractHours,
+  getLogicalDate, formatDate, timeIsAtOrAfter, currentTime, subtractHours,
 } from '@/lib/dayBoundary';
 import {
-  getRangeStats,
-  recalculateStreak,
-  isFallOff,
-  isMissedOneDayOnly,
-  getPresentDaysCount,
+  getRangeStats, recalculateStreak, isFallOff, isMissedOneDayOnly, getPresentDaysCount,
 } from '@/lib/presence';
 import { getStreakData } from '@/lib/storage';
-import {
-  scheduleNeverMissTwiceNudge,
-} from '@/lib/notifications';
+import { scheduleNeverMissTwiceNudge, scheduleCustomHabitNotification, cancelCustomHabitNotification } from '@/lib/notifications';
 import { daysSinceStart } from '@/lib/dayBoundary';
 import { getDevPhaseOverride } from '@/lib/devMode';
 import type { Habit, DayStats, Phase } from '@/types';
@@ -62,12 +57,37 @@ function getGreeting(): string {
   return 'still up';
 }
 
+const MILESTONE_FALLBACKS: Record<string, string> = {
+  day3: 'three days. something has started.',
+  day7: 'one week. the anchor is holding.',
+  day21: 'three weeks. that\'s neuroplasticity.',
+};
+
 function getPersonalisedGreeting(userName: string, startDate: string): string {
   const copy = getPersonalisedCopy();
+  const days = daysSinceStart(startDate);
+
+  // Milestone check — days 3, 7, 21
+  const milestoneKey =
+    days === 3 ? 'day3' : days === 7 ? 'day7' : days === 21 ? 'day21' : null;
+  if (milestoneKey) {
+    const shownMilestones: string[] = copy?.shownMilestones ?? [];
+    if (!shownMilestones.includes(milestoneKey)) {
+      const greeting =
+        copy?.milestoneGreetings?.[milestoneKey as keyof typeof copy.milestoneGreetings]
+        ?? MILESTONE_FALLBACKS[milestoneKey];
+      // Mark as shown
+      const updatedCopy = { ...(copy ?? { habitExplanations: {}, completionAcknowledgements: {}, greetingVariations: { morning: [], afternoon: [], evening: [], latenight: [] } }), shownMilestones: [...shownMilestones, milestoneKey] };
+      setPersonalisedCopy(updatedCopy);
+      return greeting;
+    }
+  }
+
+  // Standard rotation
   const band = getTimeBand();
   const variations = copy?.greetingVariations?.[band] as string[] | undefined;
   if (variations?.length) {
-    const idx = (daysSinceStart(startDate) - 1) % variations.length;
+    const idx = (days - 1) % variations.length;
     return variations[idx] ?? `${getGreeting()}, ${userName}.`;
   }
   return `${getGreeting()}, ${userName}.`;
@@ -79,6 +99,22 @@ function phaseNameFor(phase: number): string {
   if (phase === 1) return 'stabilise';
   if (phase === 2) return 'build';
   return 'raise the stakes';
+}
+
+const WEEK_LAYER_LABELS: Record<number, string> = {
+  1: 'week 1 · presence',
+  2: 'week 2 · timing',
+  3: 'week 3 · stacking',
+};
+
+function getWeekNumber(startDate: string): number {
+  return Math.max(1, Math.ceil(daysSinceStart(startDate) / 7));
+}
+
+function getCurrentTechnique(weekNum: number): TechniqueKey {
+  if (weekNum <= 1) return 'physiological-sigh';
+  if (weekNum <= 2) return 'cyclic-sigh';
+  return 'box-breathing';
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -121,14 +157,17 @@ export default function HomeScreen() {
   const [phaseModalVisible, setPhaseModalVisible] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetGroup, setSheetGroup] = useState<'morning' | 'evening'>('morning');
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [editDate, setEditDate] = useState<string | null>(null);
+  const [guideVisible, setGuideVisible] = useState(false);
+  const [guideTechnique, setGuideTechnique] = useState<TechniqueKey>('physiological-sigh');
+  const [breathworkHabitId, setBreathworkHabitId] = useState<string | null>(null);
   const appState = useRef(AppState.currentState);
 
   const load = useCallback(() => {
     const user = getUser();
     if (!user) return;
 
-    // Recompute date values inside the callback so there's no stale closure.
     const currentToday = getLogicalDate();
 
     const todayEntry = getLogEntry(currentToday);
@@ -141,6 +180,10 @@ export default function HomeScreen() {
     const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
     const activeHabits = getActiveHabits(effectivePhase);
     setHabits(activeHabits);
+
+    // Find breathwork habit for guide affordance
+    const breathHabit = activeHabits.find((h) => h.suggestedId === 'nervous-system-reset');
+    setBreathworkHabitId(breathHabit?.id ?? null);
 
     const entry = getLogEntry(currentToday);
     setCompleted(entry?.habits ?? {});
@@ -157,13 +200,16 @@ export default function HomeScreen() {
 
     setShowNudge(isMissedOneDayOnly());
     setIsSunday(new Date().getDay() === 0);
+
+    // Determine current breathwork technique
+    const weekNum = getWeekNumber(user.startDate);
+    setGuideTechnique(getCurrentTechnique(weekNum));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // Schedule never-miss-twice nudge once per session, not on every load() call.
   useEffect(() => {
     const user = getUser();
     if (user && isMissedOneDayOnly()) {
@@ -206,16 +252,61 @@ export default function HomeScreen() {
     const allHabits = getHabits();
     const habit = allHabits[habitId];
     if (!habit) return;
+    // Cancel notification if this habit had one
+    if (habit.customNotificationTime) {
+      cancelCustomHabitNotification().catch(() => {});
+    }
     upsertHabit({ ...habit, active: false });
     load();
   }
 
-  function handleAddHabit(name: string, group: 'morning' | 'evening') {
+  function handleOpenEdit(habit: Habit) {
+    setEditingHabit(habit);
+    setSheetGroup(habit.group);
+    setSheetVisible(true);
+  }
+
+  async function handleSaveHabit(
+    name: string,
+    group: 'morning' | 'evening',
+    notificationTime: string | null,
+    reason: string | null,
+  ) {
     const user = getUser();
     if (!user) return;
-    const habit = addCustomHabit(name, group, user.currentPhase);
-    generateCustomHabitLearnContent(habit.id, name);
+
+    if (editingHabit) {
+      // Edit existing
+      const oldNotif = editingHabit.customNotificationTime;
+      editCustomHabit(editingHabit.id, name, group, notificationTime, reason);
+      // Handle notification changes
+      if (notificationTime) {
+        await scheduleCustomHabitNotification(name, notificationTime);
+      } else if (oldNotif) {
+        await cancelCustomHabitNotification();
+      }
+      setEditingHabit(null);
+    } else {
+      // Add new
+      const habit = addCustomHabit(name, group, user.currentPhase, notificationTime, reason);
+      if (notificationTime) {
+        await scheduleCustomHabitNotification(name, notificationTime);
+      }
+      generateCustomHabitLearnContent(habit.id, name);
+    }
     load();
+  }
+
+  function handleOpenAddSheet(group: 'morning' | 'evening') {
+    setEditingHabit(null);
+    setSheetGroup(group);
+    setSheetVisible(true);
+  }
+
+  function handleBreathworkComplete() {
+    if (breathworkHabitId) {
+      handleToggle(breathworkHabitId);
+    }
   }
 
   const user = getUser();
@@ -234,6 +325,9 @@ export default function HomeScreen() {
   const bedtimeDisplay = formatWakeTime(subtractHours(user.wakeTime, 8.5));
   const presentDays = getPresentDaysCount(user.startDate);
   const greeting = getPersonalisedGreeting(user.name, user.startDate);
+
+  const weekNum = getWeekNumber(user.startDate);
+  const weekLayerLabel = effectivePhase === 1 ? WEEK_LAYER_LABELS[Math.min(weekNum, 3)] : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -258,7 +352,13 @@ export default function HomeScreen() {
               <Text variant="label" color={Colors.tealText}>
                 {`phase ${effectivePhase} · ${phaseNameFor(effectivePhase)}`}
               </Text>
-              <View style={styles.phaseDot} />
+              {weekLayerLabel ? (
+                <Text variant="label" color={Colors.textTertiary} style={styles.weekLayerLabel}>
+                  {weekLayerLabel}
+                </Text>
+              ) : (
+                <View style={styles.phaseDot} />
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/profile')}
@@ -328,12 +428,14 @@ export default function HomeScreen() {
               nudge={showNudge}
               onToggle={handleToggle}
               onRemove={h.isCustom ? () => handleRemoveHabit(h.id) : undefined}
+              onEdit={h.isCustom ? () => handleOpenEdit(h) : undefined}
+              onGuide={h.id === breathworkHabitId ? () => setGuideVisible(true) : undefined}
             />
           ))}
           {customMorningCount < 2 && (
             <TouchableOpacity
               style={styles.addHabitBtn}
-              onPress={() => { setSheetGroup('morning'); setSheetVisible(true); }}
+              onPress={() => handleOpenAddSheet('morning')}
               accessibilityRole="button"
               accessibilityLabel="add a habit to morning group"
             >
@@ -352,12 +454,13 @@ export default function HomeScreen() {
               completed={!!completed[h.id]}
               onToggle={handleToggle}
               onRemove={h.isCustom ? () => handleRemoveHabit(h.id) : undefined}
+              onEdit={h.isCustom ? () => handleOpenEdit(h) : undefined}
             />
           ))}
           {customEveningCount < 2 && (
             <TouchableOpacity
               style={styles.addHabitBtn}
-              onPress={() => { setSheetGroup('evening'); setSheetVisible(true); }}
+              onPress={() => handleOpenAddSheet('evening')}
               accessibilityRole="button"
               accessibilityLabel="add a habit to evening group"
             >
@@ -382,13 +485,21 @@ export default function HomeScreen() {
       <CustomHabitSheet
         visible={sheetVisible}
         defaultGroup={sheetGroup}
-        onClose={() => setSheetVisible(false)}
-        onAdd={handleAddHabit}
+        editHabit={editingHabit}
+        onClose={() => { setSheetVisible(false); setEditingHabit(null); }}
+        onSave={handleSaveHabit}
       />
 
       <PastDayEditSheet
         date={editDate}
         onClose={() => { setEditDate(null); load(); }}
+      />
+
+      <BreathworkGuide
+        visible={guideVisible}
+        technique={guideTechnique}
+        onDismiss={() => setGuideVisible(false)}
+        onComplete={handleBreathworkComplete}
       />
     </SafeAreaView>
   );
@@ -414,7 +525,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   phaseLabelBtn: {
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: 3,
     minWidth: 44,
     minHeight: 44,
@@ -426,6 +537,11 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: Colors.textTertiary,
     opacity: 0.6,
+  },
+  weekLayerLabel: {
+    fontSize: 10,
+    fontFamily: 'Outfit_300Light',
+    letterSpacing: 0.3,
   },
   settingsBtn: {
     minWidth: 44,

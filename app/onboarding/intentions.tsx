@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 function StackCard({ trigger, action }: { trigger: string; action: string }) {
   return (
@@ -79,7 +79,7 @@ export default function IntentionsScreen() {
           </Text>
         </View>
 
-        <Button label="got it" onPress={() => router.push('/onboarding/handoff')} />
+        <Button label="got it" onPress={() => { setOnboardingLastScreen(12); router.push('/onboarding/handoff'); }} />
       </ScrollView>
     </SafeAreaView>
   );

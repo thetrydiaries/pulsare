@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 const PRESETS = [
   'morning walk',
@@ -44,6 +44,7 @@ export default function MovementScreen() {
     if (userLabel.trim()) {
       storage.set('onboarding.movementUserLabel', userLabel.trim());
     }
+    setOnboardingLastScreen(5);
     router.push('/onboarding/breathwork');
   }
 

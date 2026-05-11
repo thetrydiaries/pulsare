@@ -14,7 +14,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 export default function CustomHabitScreen() {
   const [habitName, setHabitName] = useState('');
@@ -30,6 +30,7 @@ export default function CustomHabitScreen() {
       storage.remove('onboarding.customHabit.name');
       storage.remove('onboarding.customHabit.group');
     }
+    setOnboardingLastScreen(8);
     router.push('/onboarding/notifications');
   }
 

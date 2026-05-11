@@ -6,7 +6,8 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import StarMark from '@/components/galaxy/StarMark';
 import PastDayEditSheet from '@/components/PastDayEditSheet';
-import { getUser } from '@/lib/storage';
+import { getUser, getAllLogDates, getLogEntry } from '@/lib/storage';
+import { getActiveHabits } from '@/lib/habits';
 import {
   dateRangeFromStart,
   getLogicalDate,
@@ -20,11 +21,21 @@ import {
   getPresenceRate,
 } from '@/lib/presence';
 import { getStreakData } from '@/lib/storage';
-import type { DayStats } from '@/types';
+import type { DayStats, Habit, StarState } from '@/types';
 
-type TabView = 'week' | 'month';
+type TabView = 'week' | 'month' | 'anchors';
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+// Protocol habit display order (by suggestedId)
+const PROTOCOL_ORDER = [
+  'wake-anchor',
+  'morning-light',
+  'water-before-coffee',
+  'morning-movement',
+  'nervous-system-reset',
+  'evening-anchor',
+];
 
 // ─── Galaxy concept cards (weeks 1–3) ────────────────────────────────────────
 
@@ -80,16 +91,13 @@ function getMonthDates(): string[] {
 }
 
 // Returns month dates padded to start on Monday, grouped into rows of 7.
-// Using explicit rows (not flexWrap) avoids float-precision misalignment.
 function getMonthWeeks(): (string | null)[][] {
   const dates = getMonthDates();
-  // (getDay() + 6) % 7: Sun=6, Mon=0, ..., Sat=5
   const firstDow = (parseDate(dates[0]).getDay() + 6) % 7;
   const padded: (string | null)[] = [
     ...Array(firstDow).fill(null),
     ...dates,
   ];
-  // Fill trailing cells to complete last row
   while (padded.length % 7 !== 0) padded.push(null);
   const weeks: (string | null)[][] = [];
   for (let i = 0; i < padded.length; i += 7) {
@@ -108,6 +116,39 @@ function deterministicOffset(dateString: string): { x: number; y: number } {
   return { x, y };
 }
 
+// ─── Anchors tab helpers ──────────────────────────────────────────────────────
+
+function sortHabitsForAnchors(habits: Habit[]): Habit[] {
+  return [...habits].sort((a, b) => {
+    const ai = a.suggestedId ? PROTOCOL_ORDER.indexOf(a.suggestedId) : Infinity;
+    const bi = b.suggestedId ? PROTOCOL_ORDER.indexOf(b.suggestedId) : Infinity;
+    if (ai === bi) return 0;
+    return ai - bi;
+  });
+}
+
+function computeLifetimeCounts(habits: Habit[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const h of habits) counts[h.id] = 0;
+  const dates = getAllLogDates();
+  for (const date of dates) {
+    const entry = getLogEntry(date);
+    if (!entry?.habits) continue;
+    for (const h of habits) {
+      if (entry.habits[h.id] === true) counts[h.id] = (counts[h.id] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+function getSparklineStates(habit: Habit, weekDates: string[], today: string): StarState[] {
+  return weekDates.map((date) => {
+    if (date > today) return 'future';
+    const entry = getLogEntry(date);
+    return entry?.habits?.[habit.id] === true ? 'full' : 'missed';
+  });
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function GalaxyScreen() {
@@ -117,6 +158,8 @@ export default function GalaxyScreen() {
   const [presenceRate, setPresenceRate] = useState(0);
   const [streak, setStreak] = useState(0);
   const [editDate, setEditDate] = useState<string | null>(null);
+  const [anchorHabits, setAnchorHabits] = useState<Habit[]>([]);
+  const [lifetimeCounts, setLifetimeCounts] = useState<Record<string, number>>({});
 
   const insets = useSafeAreaInsets();
   const canvasPaddingH = insets.left + 20;
@@ -138,7 +181,11 @@ export default function GalaxyScreen() {
     setPresentDays(getPresentDaysCount(user.startDate));
     setPresenceRate(getPresenceRate(user.startDate));
     setStreak(getStreakData().currentStreak);
-  }, [user?.startDate]);
+
+    const habits = sortHabitsForAnchors(getActiveHabits(user.phase));
+    setAnchorHabits(habits);
+    setLifetimeCounts(computeLifetimeCounts(habits));
+  }, [user?.startDate, user?.phase]);
 
   useFocusEffect(loadStats);
 
@@ -151,6 +198,8 @@ export default function GalaxyScreen() {
   const weekNum = getWeekNumber(user.startDate);
   const conceptIndex = Math.min(weekNum - 1, GALAXY_CONCEPTS.length - 1);
   const concept = GALAXY_CONCEPTS[conceptIndex];
+
+  const totalCompletions = Object.values(lifetimeCounts).reduce((s, n) => s + n, 0);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -167,9 +216,16 @@ export default function GalaxyScreen() {
           </Text>
         </View>
 
+        {/* Stats row — above tabs for permanent visibility */}
+        <View style={[styles.statsRow, { paddingHorizontal: canvasPaddingH }]}>
+          <StatBlock value={presentDays} label="days present" />
+          <StatBlock value={`${presenceRate}%`} label="presence rate" />
+          <StatBlock value={streak} label="current streak" />
+        </View>
+
         {/* Tabs */}
         <View style={[styles.tabs, { paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }]}>
-          {(['week', 'month'] as TabView[]).map((t) => (
+          {(['week', 'month', 'anchors'] as TabView[]).map((t) => (
             <TouchableOpacity
               key={t}
               style={styles.tab}
@@ -286,29 +342,104 @@ export default function GalaxyScreen() {
           </View>
         )}
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <StatBlock value={presentDays} label="days present" />
-          <StatBlock value={`${presenceRate}%`} label="presence rate" />
-          <StatBlock value={streak} label="current streak" />
-        </View>
+        {/* Anchors tab */}
+        {tab === 'anchors' && (
+          <View style={{ paddingHorizontal: canvasPaddingH, paddingTop: 8 }}>
+            {totalCompletions === 0 ? (
+              <Text
+                variant="label"
+                color={Colors.textTertiary}
+                style={styles.emptyAnchors}
+              >
+                your first completion will appear here.
+              </Text>
+            ) : (
+              anchorHabits.map((habit, index) => {
+                const count = lifetimeCounts[habit.id] ?? 0;
+                const label = habit.userLabel ?? habit.label;
+                const sparkStates = getSparklineStates(habit, weekDates, today);
+                return (
+                  <View key={habit.id}>
+                    {index > 0 && <View style={styles.anchorDivider} />}
+                    <View style={styles.anchorRow}>
+                      {/* Left: star + label + sparkline */}
+                      <View style={styles.anchorLeft}>
+                        <View style={styles.anchorLabelRow}>
+                          <View style={styles.anchorStarContainer}>
+                            <StarMark state="full" size={20} />
+                          </View>
+                          <Text
+                            variant="body"
+                            color={Colors.textSecondary}
+                            style={styles.anchorLabel}
+                            numberOfLines={1}
+                          >
+                            {label}
+                          </Text>
+                        </View>
+                        {/* 7-day sparkline */}
+                        <View style={styles.sparkline}>
+                          {/* Day letters */}
+                          <View style={styles.sparkLetterRow}>
+                            {DAY_LETTERS.map((l, i) => (
+                              <View key={i} style={styles.sparkCell}>
+                                <Text style={styles.sparkLetter}>{l}</Text>
+                              </View>
+                            ))}
+                          </View>
+                          {/* Stars */}
+                          <View style={styles.sparkStarRow}>
+                            {weekDates.map((d, i) => {
+                              const isToday = d === today;
+                              const sparkSize = isToday ? 14 : 12;
+                              return (
+                                <View key={d} style={styles.sparkCell}>
+                                  <StarMark state={sparkStates[i]} size={sparkSize} />
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Right: count */}
+                      <View style={styles.anchorRight}>
+                        <Text
+                          variant="serif"
+                          size={28}
+                          color={Colors.textPrimary}
+                          style={styles.anchorCount}
+                        >
+                          {count}
+                        </Text>
+                        <Text style={styles.anchorTimes}>times</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
 
         {/* Weekly concept card */}
-        <View style={[styles.conceptCard, { marginHorizontal: canvasPaddingH }]}>
-          <Text variant="serif" size={18} style={styles.conceptTitle}>{concept.title}</Text>
-          <Text variant="label" color={Colors.textSecondary} style={styles.conceptDef}>
-            {concept.definition}
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/learn')}
-            accessibilityRole="link"
-            accessibilityLabel="read more on learn screen"
-          >
-            <Text variant="label" color={Colors.tealText} style={styles.readMore}>
-              read more →
+        {tab !== 'anchors' && (
+          <View style={[styles.conceptCard, { marginHorizontal: canvasPaddingH }]}>
+            <Text variant="serif" size={18} style={styles.conceptTitle}>{concept.title}</Text>
+            <Text variant="label" color={Colors.textSecondary} style={styles.conceptDef}>
+              {concept.definition}
             </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/learn')}
+              accessibilityRole="link"
+              accessibilityLabel="read more on learn screen"
+            >
+              <Text variant="label" color={Colors.tealText} style={styles.readMore}>
+                read more →
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       <PastDayEditSheet
@@ -335,10 +466,23 @@ const styles = StyleSheet.create({
   header: { gap: 0 },
   subtitle: { marginTop: 8 },
   cosmic: { lineHeight: 18, marginTop: 4 },
+
+  // Stats row — now above tabs
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.border,
+  },
+  statBlock: { alignItems: 'flex-start', gap: 2, flex: 1 },
+  statLabel: { fontSize: 10 },
+
   tabs: {
     flexDirection: 'row',
     gap: 24,
-    marginTop: 24,
+    marginTop: 16,
     marginBottom: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
@@ -395,18 +539,77 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Stats
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 32,
-    paddingTop: 20,
-    paddingHorizontal: 24,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.border,
+  // Anchors tab
+  emptyAnchors: {
+    textAlign: 'center',
+    marginTop: 48,
   },
-  statBlock: { alignItems: 'flex-start', gap: 2, flex: 1 },
-  statLabel: { fontSize: 10 },
+  anchorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 16,
+    gap: 12,
+  },
+  anchorLeft: {
+    flex: 1,
+    gap: 10,
+  },
+  anchorLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  anchorStarContainer: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  anchorLabel: {
+    flex: 1,
+    fontSize: 15,
+  },
+  anchorRight: {
+    alignItems: 'flex-end',
+    gap: 2,
+    minWidth: 56,
+  },
+  anchorCount: {
+    textAlign: 'right',
+  },
+  anchorTimes: {
+    fontFamily: 'Outfit_300Light',
+    fontSize: 12,
+    color: Colors.textTertiary,
+    textAlign: 'right',
+  },
+  anchorDivider: {
+    height: 0.5,
+    backgroundColor: '#1c1c1c',
+  },
+
+  // Sparkline
+  sparkline: {
+    gap: 3,
+    marginLeft: 30, // align with label (star 20 + gap 10)
+  },
+  sparkLetterRow: {
+    flexDirection: 'row',
+  },
+  sparkStarRow: {
+    flexDirection: 'row',
+  },
+  sparkCell: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sparkLetter: {
+    fontFamily: 'Outfit_300Light',
+    fontSize: 9,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+  },
 
   // Concept card
   conceptCard: {

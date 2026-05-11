@@ -27,22 +27,23 @@ interface Props {
   nudge?: boolean;
   onToggle: (id: string) => void;
   onRemove?: () => void;
+  onEdit?: () => void;
+  onGuide?: () => void; // only provided for breathwork habit
 }
 
-export default function HabitRow({ habit, completed, nudge = false, onToggle, onRemove }: Props) {
+export default function HabitRow({ habit, completed, nudge = false, onToggle, onRemove, onEdit, onGuide }: Props) {
   const fillAnim = useAnimatedValue(completed ? 1 : 0);
   const scaleAnim = useAnimatedValue(1);
   const ackAnim = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [showRemove, setShowRemove] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const prevCompleted = useRef(completed);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
   }, []);
 
-  // Sync fill animation when `completed` is changed externally (e.g. after a load() refresh),
-  // without playing the tap animation sequence.
+  // Sync fill animation when `completed` is changed externally.
   useEffect(() => {
     if (prevCompleted.current !== completed) {
       prevCompleted.current = completed;
@@ -63,11 +64,16 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
   }
 
   function handleLongPress() {
-    if (habit.isCustom && onRemove) setShowRemove(true);
+    if (habit.isCustom && (onEdit || onRemove)) setShowActions(true);
+  }
+
+  function handleEditTap() {
+    setShowActions(false);
+    onEdit?.();
   }
 
   function handleRemoveTap() {
-    setShowRemove(false);
+    setShowActions(false);
     Alert.alert(
       `remove ${displayLabel}?`,
       '',
@@ -125,9 +131,9 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
     >
       <TouchableOpacity
         style={styles.labelBlock}
-        onLongPress={habit.isCustom && onRemove ? handleLongPress : undefined}
+        onLongPress={habit.isCustom && (onEdit || onRemove) ? handleLongPress : undefined}
         delayLongPress={500}
-        activeOpacity={habit.isCustom && onRemove ? 0.7 : 1}
+        activeOpacity={habit.isCustom && (onEdit || onRemove) ? 0.7 : 1}
         accessible={false}
       >
         <View style={styles.labelRow}>
@@ -140,12 +146,23 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
           </Text>
           <View style={styles.learnDot} />
         </View>
-        {showRemove && (
-          <TouchableOpacity onPress={handleRemoveTap} accessibilityRole="button" accessibilityLabel={`remove ${displayLabel}`}>
-            <Text variant="label" color={Colors.textTertiary} style={styles.removeText}>
-              remove this habit
-            </Text>
-          </TouchableOpacity>
+        {showActions && (
+          <View style={styles.actionsRow}>
+            {onEdit && (
+              <TouchableOpacity onPress={handleEditTap} accessibilityRole="button" accessibilityLabel={`edit ${displayLabel}`}>
+                <Text variant="label" color={Colors.tealText} style={styles.actionText}>
+                  edit
+                </Text>
+              </TouchableOpacity>
+            )}
+            {onRemove && (
+              <TouchableOpacity onPress={handleRemoveTap} accessibilityRole="button" accessibilityLabel={`remove ${displayLabel}`}>
+                <Text variant="label" color={Colors.textTertiary} style={styles.actionText}>
+                  remove this habit
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
         <Animated.Text
           style={[styles.ackText, { opacity: ackAnim }]}
@@ -154,6 +171,21 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
           {getAckText()}
         </Animated.Text>
       </TouchableOpacity>
+
+      {/* Guide affordance — breathwork only */}
+      {onGuide && (
+        <TouchableOpacity
+          onPress={onGuide}
+          style={styles.guideTarget}
+          accessibilityRole="button"
+          accessibilityLabel="open breathwork guide"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text variant="label" color={Colors.textTertiary} style={styles.guideLabel}>
+            guide
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         onPress={handlePress}
@@ -219,16 +251,30 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.textTertiary,
     opacity: 0.6,
   },
+  actionsRow: {
+    gap: 2,
+    marginTop: 2,
+  },
+  actionText: {
+    fontSize: 12,
+    lineHeight: 20,
+  },
   ackText: {
     fontFamily: 'Outfit_300Light',
     fontSize: 13,
     color: Colors.textSecondary,
     lineHeight: 18,
   },
-  removeText: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 2,
+  guideTarget: {
+    paddingHorizontal: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  guideLabel: {
+    fontSize: 11,
+    letterSpacing: 0.4,
+    opacity: 0.5,
   },
   checkTarget: {
     width: 44,

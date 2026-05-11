@@ -7,13 +7,14 @@ import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import TimePicker from '@/components/ui/TimePicker';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 export default function WakeTimeScreen() {
-  const [wakeTime, setWakeTime] = useState('07:00');
+  const [wakeTime, setWakeTime] = useState(() => storage.getString('onboarding.wakeTime') ?? '07:00');
 
   function handleNext() {
     storage.set('onboarding.wakeTime', wakeTime);
+    setOnboardingLastScreen(4);
     router.push('/onboarding/movement');
   }
 

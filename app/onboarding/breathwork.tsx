@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 export default function BreathworkScreen() {
   const [experience, setExperience] = useState<'yes' | 'no' | null>(null);
@@ -22,6 +22,7 @@ export default function BreathworkScreen() {
     if (userLabel.trim()) {
       storage.set('onboarding.breathworkUserLabel', userLabel.trim());
     }
+    setOnboardingLastScreen(6);
     router.push('/onboarding/evening');
   }
 

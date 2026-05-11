@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
-import { storage } from '@/lib/storage';
+import { storage, setOnboardingLastScreen } from '@/lib/storage';
 
 const OPTIONS = [
   'running on empty',
@@ -17,11 +17,12 @@ const OPTIONS = [
 
 export default function MoodScreen() {
   const name = storage.getString('onboarding.name') ?? 'you';
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(() => storage.getString('onboarding.mood') ?? null);
 
   function handleNext() {
     if (!selected) return;
     storage.set('onboarding.mood', selected);
+    setOnboardingLastScreen(2);
     router.push('/onboarding/science');
   }
 
