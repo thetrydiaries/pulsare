@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  useAnimatedValue,
   AccessibilityInfo,
   Alert,
 } from 'react-native';
@@ -32,8 +31,8 @@ interface Props {
 }
 
 export default function HabitRow({ habit, completed, nudge = false, onToggle, onRemove, onEdit, onGuide }: Props) {
-  const fillAnim = useAnimatedValue(completed ? 1 : 0);
-  const scaleAnim = useAnimatedValue(1);
+  const fillAnim = useRef(new Animated.Value(completed ? 1 : 0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   const ackAnim = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(false);
   const [showActions, setShowActions] = useState(false);

@@ -7,6 +7,7 @@ import {
   Alert,
   TextInput,
   Animated,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
@@ -154,19 +155,24 @@ export default function ProfileScreen() {
     setDevPhaseOverride(next);
   }
 
+  async function confirmReset() {
+    await clearAllData();
+    router.replace('/onboarding/welcome');
+  }
+
   function handleDevReset() {
+    if (Platform.OS === 'web') {
+      if (window.confirm('this will delete all data and restart onboarding. are you sure?')) {
+        confirmReset();
+      }
+      return;
+    }
     Alert.alert(
       'this will delete all data and restart onboarding. are you sure?',
       '',
       [
         { text: 'cancel', style: 'cancel' },
-        {
-          text: 'yes, reset',
-          onPress: async () => {
-            await clearAllData();
-            router.replace('/onboarding/welcome');
-          },
-        },
+        { text: 'yes, reset', onPress: confirmReset },
       ]
     );
   }
@@ -370,19 +376,18 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={styles.resetBtn}
               onPress={() => {
+                if (Platform.OS === 'web') {
+                  if (window.confirm('reset everything? this will delete all your data and restart onboarding.')) {
+                    confirmReset();
+                  }
+                  return;
+                }
                 Alert.alert(
                   'reset everything?',
                   'this will delete all your data and restart onboarding. cannot be undone.',
                   [
                     { text: 'cancel', style: 'cancel' },
-                    {
-                      text: 'reset',
-                      style: 'destructive',
-                      onPress: async () => {
-                        await clearAllData();
-                        router.replace('/onboarding/welcome');
-                      },
-                    },
+                    { text: 'reset', style: 'destructive', onPress: confirmReset },
                   ]
                 );
               }}

@@ -34,7 +34,28 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "static",
+      "name": "Pulsare",
+      "shortName": "Pulsare",
+      "description": "A habit app built around your nervous system.",
+      "themeColor": "#0c0c0c",
+      "backgroundColor": "#0c0c0c",
+      "display": "standalone",
+      "orientation": "portrait",
+      "icons": [
+        {
+          "src": "./assets/pwa-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "src": "./assets/pwa-icon-512.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
     },
     "plugins": [
       "expo-router",

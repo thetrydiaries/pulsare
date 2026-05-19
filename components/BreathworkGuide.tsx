@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   AccessibilityInfo,
   PanResponder,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -292,9 +293,22 @@ export default function BreathworkGuide({ visible, technique: techniqueKey, onDi
                 </TouchableOpacity>
               )}
 
-              <Text variant="label" color={Colors.textTertiary} style={styles.swipeHint}>
-                swipe down to close
-              </Text>
+              {Platform.OS === 'web' ? (
+                <TouchableOpacity
+                  onPress={onDismiss}
+                  style={styles.webCloseBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="close breathwork guide"
+                >
+                  <Text variant="label" color={Colors.textTertiary} style={styles.swipeHint}>
+                    close
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text variant="label" color={Colors.textTertiary} style={styles.swipeHint}>
+                  swipe down to close
+                </Text>
+              )}
             </View>
           </View>
         </SafeAreaView>
@@ -377,5 +391,11 @@ const styles = StyleSheet.create({
   swipeHint: {
     fontSize: 11,
     opacity: 0.4,
+  },
+  webCloseBtn: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

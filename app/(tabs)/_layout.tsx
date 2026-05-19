@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Colors } from '@/constants/colors';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import Text from '@/components/ui/Text';
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
@@ -26,8 +26,8 @@ export default function TabsLayout() {
           backgroundColor: Colors.background,
           borderTopWidth: 0.5,
           borderTopColor: Colors.border,
-          height: 64,
-          paddingBottom: 12,
+          height: Platform.select({ web: 52, default: 64 }),
+          paddingBottom: Platform.select({ web: 4, default: 12 }),
         },
         tabBarShowLabel: false,
       }}

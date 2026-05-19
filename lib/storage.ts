@@ -222,4 +222,5 @@ export async function clearAllData(): Promise<void> {
   for (const key of Object.keys(memCache)) {
     delete memCache[key];
   }
+  _initPromise = null;
 }
