@@ -4,6 +4,7 @@ import {
   setStreakData,
   getActiveHabitsForPhase,
   getUser,
+  getAllLogDates,
 } from './storage';
 import { getLogicalDate, dateRangeFromStart } from './dayBoundary';
 import { isDayPresent } from './habits';
@@ -64,6 +65,16 @@ export function getRangeStats(dates: string[]): DayStats[] {
   return dates.map((d) => computeDayStats(d, today, activeHabits));
 }
 
+// ─── All dates that should be counted (official range + any retroactive logs) ─
+
+function getEffectiveDates(startDate: string): string[] {
+  const today = getLogicalDate();
+  const official = new Set(dateRangeFromStart(startDate));
+  const logged = getAllLogDates().filter((d) => d <= today);
+  const all = [...new Set([...official, ...logged])];
+  return all.sort();
+}
+
 // ─── Count present days since start ──────────────────────────────────────────
 
 export function getPresentDaysCount(startDate: string): number {
@@ -71,7 +82,7 @@ export function getPresentDaysCount(startDate: string): number {
   const phase = user?.currentPhase ?? 1;
   const activeHabits = getActiveHabitsForPhase(phase);
   const today = getLogicalDate();
-  return dateRangeFromStart(startDate).filter((d) => {
+  return getEffectiveDates(startDate).filter((d) => {
     const s = computeDayStats(d, today, activeHabits);
     return s.state === 'full' || s.state === 'return';
   }).length;
@@ -95,7 +106,7 @@ export function recalculateStreak(): void {
   const today = getLogicalDate();
   const phase = user.currentPhase;
   const activeHabits = getActiveHabitsForPhase(phase);
-  const relevantDates = dateRangeFromStart(user.startDate).filter((d) => d <= today);
+  const relevantDates = getEffectiveDates(user.startDate).filter((d) => d <= today);
 
   let streak = 0;
   for (let i = relevantDates.length - 1; i >= 0; i--) {
