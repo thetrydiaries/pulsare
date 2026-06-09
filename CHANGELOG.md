@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-06-09 — Bug fixes: status bar, data consistency, habit editing
+
+### Bug fixes
+
+- **PWA status bar white bar on iOS** — the iOS status bar area showed a white strip at the top of the screen when the app was installed as a PWA. Root cause: the HTML `<body>` element had no background colour, so the dark background only existed at the React Native view layer — not at the document level where the translucent status bar overlay reads from. Fixed by injecting `html, body { background-color: #0c0c0c; }` via the `<Head>` component in `_layout.tsx`.
+
+- **Galaxy week and month views ignoring retroactively logged days** — the `loadStats` function in `galaxy.tsx` built the stats map using only `dateRangeFromStart(user.startDate)`. Any date in the current week or month that predated the official start date was absent from the map and fell back to `'missed'`, even if a log entry existed. The anchors tab was unaffected because it reads `getLogEntry` directly rather than going through the stats map. Fixed by extending the stats map to cover the union of the official date range, the current week, and the current month.
+
+- **Days present counter and streak ignoring retroactively logged days** — `getPresentDaysCount` and `recalculateStreak` in `presence.ts` both iterated only over `dateRangeFromStart(user.startDate)`, so retroactively edited days before the start date were silently excluded. This caused the "days present" counter and streak to disagree with the anchors sparkline and galaxy views. Fixed by introducing a `getEffectiveDates` helper that takes the union of the official date range and all dates present in the log (`getAllLogDates`), and using it in both functions.
+
+- **Editing restricted to custom habits only** — long-press edit was gated on `habit.isCustom` in `HabitRow`, `index.tsx`, and `handleSaveHabit`. System habits (wake up alarm, morning light, etc.) could not be renamed. Fixed by removing the `isCustom` guard from the long-press handler and passing `onEdit` for all habits. For system habits, saving writes the new name to `userLabel` via `upsertHabit` (which is already the display override used everywhere). For custom habits, the existing `editCustomHabit` path is unchanged. The `CustomHabitSheet` hides the group, notification, and reason fields when editing a system habit — only the name field is shown.
+
+---
+
 ## 2026-05-11 — Progressive depth, breathwork guide, galaxy anchors, and habit upgrades (brief v3)
 
 ### UI amendments
