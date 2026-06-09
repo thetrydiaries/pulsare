@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
   reasonInput: {
     fontFamily: 'Outfit_300Light',
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.textPrimary,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,

@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   },
   bodyCheck: {
     fontFamily: 'Outfit_300Light',
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.textSecondary,
     paddingVertical: 12,
     paddingHorizontal: 0,

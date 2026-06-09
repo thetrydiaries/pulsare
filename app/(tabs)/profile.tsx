@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   },
   dateInput: {
     fontFamily: 'Outfit_300Light',
-    fontSize: 13,
+    fontSize: 16,
     color: Colors.textPrimary,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
