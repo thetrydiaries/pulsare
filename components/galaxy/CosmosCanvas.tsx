@@ -14,11 +14,17 @@ interface Props {
 }
 
 const MARGIN = 24;
-const MIN_CELL = 56;   // minimum cell size — drives how many columns fit
-const MAX_COLS = 8;    // caps flat wide-screen layouts to keep the web preview representative
-const FILAMENT_THRESHOLD = 120;
-const FILAMENT_MAX_OPACITY = 0.32;
-const MAX_FILAMENTS = 150;
+const MIN_CELL = 56;
+const MAX_COLS = 8;
+
+// Streak chain constants (primary layer — meaningful)
+const STREAK_MAX_OPACITY = 0.75;
+const STREAK_MIN_OPACITY = 0.45;
+
+// Ambient web constants (secondary layer — depth/texture only)
+const AMBIENT_THRESHOLD = 120;
+const AMBIENT_MAX_OPACITY = 0.09;
+const MAX_AMBIENT = 150;
 
 function xorshift(seed: number): number {
   seed ^= seed << 13;
@@ -40,8 +46,7 @@ function computeLayout(n: number, w: number): { cols: number; cellSize: number; 
   const usableW = w - MARGIN * 2;
   const cols = Math.min(MAX_COLS, Math.max(1, Math.floor(usableW / MIN_CELL)));
   const rows = Math.ceil(n / cols);
-  // Square cells — cellSize drives BOTH width and height so jitter is isotropic
-  const cellSize = usableW / cols;
+  const cellSize = usableW / cols; // square cells — isotropic jitter
   const canvasHeight = Math.max(280, Math.ceil(rows * cellSize) + MARGIN * 2);
   return { cols, cellSize, canvasHeight };
 }
@@ -68,11 +73,74 @@ function computePositions(
 }
 
 interface FilamentLine {
-  x1: number; y1: number; x2: number; y2: number; opacity: number;
+  x1: number; y1: number; x2: number; y2: number;
+  opacity: number;
+  strokeWidth: number;
 }
 
-// Spatial bucketing: O(n) average — only checks 3×3 cell neighbourhood per star
-function computeFilaments(
+// Map each present date to the length of its streak run.
+// Used to scale chain line weight — longer streak = thicker, brighter line.
+function computeStreakLengths(
+  dates: string[],
+  presentSet: Set<string>,
+): Record<string, number> {
+  const lengths: Record<string, number> = {};
+  let runStart = -1;
+  let runLen = 0;
+
+  const commit = (end: number) => {
+    for (let j = runStart; j < end; j++) {
+      lengths[dates[j]] = runLen;
+    }
+  };
+
+  for (let i = 0; i < dates.length; i++) {
+    if (presentSet.has(dates[i])) {
+      if (runLen === 0) runStart = i;
+      runLen++;
+    } else {
+      if (runLen > 0) { commit(i); runLen = 0; }
+    }
+  }
+  if (runLen > 0) commit(dates.length);
+
+  return lengths;
+}
+
+// Primary layer: connect consecutive present days.
+// Line weight and opacity scale with streak length so long runs read as bright constellations.
+function computeStreakChains(
+  dates: string[],
+  presentSet: Set<string>,
+  streakLengths: Record<string, number>,
+  positions: Record<string, { x: number; y: number }>,
+): FilamentLine[] {
+  const lines: FilamentLine[] = [];
+
+  for (let i = 0; i < dates.length - 1; i++) {
+    const curr = dates[i];
+    const next = dates[i + 1];
+    if (!presentSet.has(curr) || !presentSet.has(next)) continue;
+
+    const p1 = positions[curr];
+    const p2 = positions[next];
+    if (!p1 || !p2) continue;
+
+    // Longer streak → thicker, brighter line
+    const len = Math.max(streakLengths[curr] ?? 1, streakLengths[next] ?? 1);
+    const t = Math.min(1, (len - 2) / 8); // 0 at len=2, 1 at len=10+
+    const opacity = STREAK_MIN_OPACITY + t * (STREAK_MAX_OPACITY - STREAK_MIN_OPACITY);
+    const strokeWidth = 1 + t * 1.2; // 1px at len=2 → 2.2px at len=10+
+
+    lines.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, opacity, strokeWidth });
+  }
+
+  return lines;
+}
+
+// Secondary layer: spatial proximity web, present days only, very faint.
+// Purely atmospheric — no meaning implied, just fills the canvas with depth.
+function computeAmbientFilaments(
   presentDates: string[],
   positions: Record<string, { x: number; y: number }>,
 ): FilamentLine[] {
@@ -81,8 +149,8 @@ function computeFilaments(
   for (const date of presentDates) {
     const pos = positions[date];
     if (!pos) continue;
-    const bx = Math.floor(pos.x / FILAMENT_THRESHOLD);
-    const by = Math.floor(pos.y / FILAMENT_THRESHOLD);
+    const bx = Math.floor(pos.x / AMBIENT_THRESHOLD);
+    const by = Math.floor(pos.y / AMBIENT_THRESHOLD);
     const key = `${bx},${by}`;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key)!.push(date);
@@ -93,23 +161,23 @@ function computeFilaments(
   for (const date of presentDates) {
     const pos = positions[date];
     if (!pos) continue;
-    const bx = Math.floor(pos.x / FILAMENT_THRESHOLD);
-    const by = Math.floor(pos.y / FILAMENT_THRESHOLD);
+    const bx = Math.floor(pos.x / AMBIENT_THRESHOLD);
+    const by = Math.floor(pos.y / AMBIENT_THRESHOLD);
 
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const neighbors = buckets.get(`${bx + dx},${by + dy}`);
         if (!neighbors) continue;
         for (const neighbor of neighbors) {
-          // ISO string ordering deduplicates pairs without a Set
-          if (neighbor <= date) continue;
+          if (neighbor <= date) continue; // ISO ordering deduplicates pairs
           const npos = positions[neighbor];
           if (!npos) continue;
           const dist = Math.sqrt((pos.x - npos.x) ** 2 + (pos.y - npos.y) ** 2);
-          if (dist < FILAMENT_THRESHOLD) {
+          if (dist < AMBIENT_THRESHOLD) {
             lines.push({
               x1: pos.x, y1: pos.y, x2: npos.x, y2: npos.y,
-              opacity: (1 - dist / FILAMENT_THRESHOLD) * FILAMENT_MAX_OPACITY,
+              opacity: (1 - dist / AMBIENT_THRESHOLD) * AMBIENT_MAX_OPACITY,
+              strokeWidth: 0.5,
             });
           }
         }
@@ -117,9 +185,8 @@ function computeFilaments(
     }
   }
 
-  if (lines.length <= MAX_FILAMENTS) return lines;
-  // Keep strongest connections (closest pairs have highest opacity)
-  return lines.sort((a, b) => b.opacity - a.opacity).slice(0, MAX_FILAMENTS);
+  if (lines.length <= MAX_AMBIENT) return lines;
+  return lines.sort((a, b) => b.opacity - a.opacity).slice(0, MAX_AMBIENT);
 }
 
 const STAR_SIZE: Record<StarState, number> = {
@@ -146,12 +213,21 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
     [dates, cols, cellSize],
   );
 
-  const filaments = useMemo(() => {
-    const presentDates = dates.filter(d => {
-      const state = stats[d]?.state ?? 'future';
-      return PRESENT_STATES.has(state) || d === today;
-    });
-    return computeFilaments(presentDates, positions);
+  const { streakChains, ambientFilaments } = useMemo(() => {
+    // Present = days where user actually showed up (not forced-including today)
+    const presentSet = new Set(
+      dates.filter(d => PRESENT_STATES.has(stats[d]?.state ?? 'future'))
+    );
+    // Today joins the ambient web if it has any state (draws it into the texture)
+    const ambientSet = new Set([
+      ...presentSet,
+      ...(PRESENT_STATES.has(stats[today]?.state ?? 'future') ? [today] : []),
+    ]);
+    const streakLengths = computeStreakLengths(dates, presentSet);
+    return {
+      streakChains:     computeStreakChains(dates, presentSet, streakLengths, positions),
+      ambientFilaments: computeAmbientFilaments([...ambientSet], positions),
+    };
   }, [dates, positions, stats, today]);
 
   return (
@@ -162,12 +238,23 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
         style={{ position: 'absolute', top: 0, left: 0 }}
         pointerEvents="none"
       >
-        {filaments.map((l, i) => (
+        {/* Ambient web — drawn first so streak chains sit on top */}
+        {ambientFilaments.map((l, i) => (
           <Line
-            key={i}
+            key={`a${i}`}
             x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
             stroke={Colors.textPrimary}
-            strokeWidth={1}
+            strokeWidth={l.strokeWidth}
+            strokeOpacity={l.opacity}
+          />
+        ))}
+        {/* Streak chains — meaningful layer */}
+        {streakChains.map((l, i) => (
+          <Line
+            key={`s${i}`}
+            x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+            stroke={Colors.textPrimary}
+            strokeWidth={l.strokeWidth}
             strokeOpacity={l.opacity}
           />
         ))}
