@@ -54,6 +54,7 @@ export default function RootLayout() {
         <meta name="apple-mobile-web-app-title" content="Pulsare" />
         <link rel="apple-touch-icon" href="/pwa-icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
+        <style>{`html, body { background-color: #0c0c0c; margin: 0; }`}</style>
       </Head>
       <View style={[styles.root, Platform.OS === 'web' ? styles.rootWeb : null]}>
         <View style={[styles.content, Platform.OS === 'web' ? styles.contentWeb : null]}>
