@@ -16,6 +16,7 @@ const PWA_HEAD = [
   '<meta name="apple-mobile-web-app-title" content="Pulsare" />',
   '<link rel="apple-touch-icon" href="/pwa-icon-192.png" />',
   '<link rel="manifest" href="/manifest.json" />',
+  '<script>if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js"));</script>',
 ].join('\n    ');
 
 function injectIntoHtml(filePath) {
@@ -47,6 +48,7 @@ console.log(`[pwa] injected tags into ${htmlFiles.length} HTML files`);
 
 // Copy static PWA assets to dist root
 fs.copyFileSync(path.join(WEB, 'manifest.json'), path.join(DIST, 'manifest.json'));
+fs.copyFileSync(path.join(WEB, 'sw.js'), path.join(DIST, 'sw.js'));
 fs.copyFileSync(path.join(ASSETS, 'pwa-icon-192.png'), path.join(DIST, 'pwa-icon-192.png'));
 fs.copyFileSync(path.join(ASSETS, 'pwa-icon-512.png'), path.join(DIST, 'pwa-icon-512.png'));
-console.log('[pwa] copied manifest.json, pwa-icon-192.png, pwa-icon-512.png');
+console.log('[pwa] copied manifest.json, sw.js, pwa-icon-192.png, pwa-icon-512.png');
