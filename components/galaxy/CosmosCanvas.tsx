@@ -18,8 +18,8 @@ const MIN_CELL = 56;
 const MAX_COLS = 8;
 
 // Streak chain constants (primary layer — meaningful)
-const STREAK_MAX_OPACITY = 0.75;
-const STREAK_MIN_OPACITY = 0.45;
+const STREAK_MAX_OPACITY = 0.38;
+const STREAK_MIN_OPACITY = 0.18;
 
 // Ambient web constants (secondary layer — depth/texture only)
 const AMBIENT_THRESHOLD = 120;
@@ -130,7 +130,7 @@ function computeStreakChains(
     const len = Math.max(streakLengths[curr] ?? 1, streakLengths[next] ?? 1);
     const t = Math.min(1, (len - 2) / 8); // 0 at len=2, 1 at len=10+
     const opacity = STREAK_MIN_OPACITY + t * (STREAK_MAX_OPACITY - STREAK_MIN_OPACITY);
-    const strokeWidth = 1 + t * 1.2; // 1px at len=2 → 2.2px at len=10+
+    const strokeWidth = 0.7 + t * 0.6; // 0.7px at len=2 → 1.3px at len=10+
 
     lines.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, opacity, strokeWidth });
   }

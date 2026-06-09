@@ -24,7 +24,7 @@ import {
 import { getStreakData } from '@/lib/storage';
 import type { DayStats, Habit, StarState } from '@/types';
 
-type TabView = 'week' | 'month' | 'anchors';
+type TabView = 'week' | 'month' | 'galaxy' | 'anchors';
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -78,6 +78,29 @@ function getWeekDates(): string[] {
   });
 }
 
+
+function getMonthDates(): string[] {
+  const today = new Date();
+  const first = new Date(today.getFullYear(), today.getMonth(), 1);
+  const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const dates: string[] = [];
+  const cursor = new Date(first);
+  while (cursor <= last) {
+    dates.push(formatDate(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+function getMonthWeeks(): (string | null)[][] {
+  const dates = getMonthDates();
+  const firstDow = (parseDate(dates[0]).getDay() + 6) % 7;
+  const padded: (string | null)[] = [...Array(firstDow).fill(null), ...dates];
+  while (padded.length % 7 !== 0) padded.push(null);
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+  return weeks;
+}
 
 function deterministicOffset(dateString: string): { x: number; y: number } {
   let hash = 0;
@@ -162,6 +185,7 @@ export default function GalaxyScreen() {
 
   const { width: screenWidth } = useWindowDimensions();
   const weekDates = getWeekDates();
+  const monthWeeks = getMonthWeeks();
   const allDates = dateRangeFromStart(user.startDate);
   const canvasWidth = screenWidth - canvasPaddingH * 2;
   const today = getLogicalDate();
@@ -196,7 +220,7 @@ export default function GalaxyScreen() {
 
         {/* Tabs */}
         <View style={[styles.tabs, { paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }]}>
-          {(['week', 'month', 'anchors'] as TabView[]).map((t) => (
+          {(['week', 'month', 'galaxy', 'anchors'] as TabView[]).map((t) => (
             <TouchableOpacity
               key={t}
               style={styles.tab}
@@ -263,8 +287,58 @@ export default function GalaxyScreen() {
           </View>
         )}
 
-        {/* Cosmic web view — all days since startDate, absolute-positioned with SVG filaments */}
+        {/* Month grid */}
         {tab === 'month' && (
+          <View style={{ paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }}>
+            <View style={styles.dayHeaderRow}>
+              {DAY_LETTERS.map((l, i) => (
+                <View key={i} style={styles.gridCell}>
+                  <Text variant="micro" style={styles.dayHeaderLabel}>{l}</Text>
+                </View>
+              ))}
+            </View>
+            {monthWeeks.map((week, wi) => (
+              <View key={wi} style={styles.monthWeekRow}>
+                {week.map((d, ci) => {
+                  if (!d) return <View key={`pad-${wi}-${ci}`} style={styles.gridCell} />;
+                  const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
+                  const offset = deterministicOffset(d);
+                  const isPast = d < today && d >= user.startDate;
+                  const starContent = (
+                    <View style={styles.monthStarContainer}>
+                      <StarMark state={s.state} />
+                    </View>
+                  );
+                  if (isPast) {
+                    return (
+                      <TouchableOpacity
+                        key={d}
+                        style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                        onPress={() => setEditDate(d)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`edit ${d}`}
+                        activeOpacity={0.6}
+                      >
+                        {starContent}
+                      </TouchableOpacity>
+                    );
+                  }
+                  return (
+                    <View
+                      key={d}
+                      style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
+                    >
+                      {starContent}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Galaxy — all-time cosmic web */}
+        {tab === 'galaxy' && (
           <View style={{ paddingLeft: canvasPaddingH, paddingRight: canvasPaddingH }}>
             <CosmosCanvas
               dates={allDates}
@@ -448,6 +522,13 @@ const styles = StyleSheet.create({
   weekDateNum: {
     textAlign: 'center',
   },
+
+  // Month grid
+  dayHeaderRow: { flexDirection: 'row', marginBottom: 4 },
+  dayHeaderLabel: { textAlign: 'center' },
+  monthWeekRow: { flexDirection: 'row' },
+  gridCell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
+  monthStarContainer: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 
   // Anchors tab
   emptyAnchors: {
