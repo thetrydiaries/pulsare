@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import StarMark from '@/components/galaxy/StarMark';
 import { Colors } from '@/constants/colors';
 import type { DayStats, StarState } from '@/types';
@@ -13,18 +13,12 @@ interface Props {
   onPressStar: (date: string) => void;
 }
 
-const MARGIN = 24;
-const MIN_CELL = 56;
-const MAX_COLS = 8;
-
-// Streak chain constants (primary layer — meaningful)
-const STREAK_MAX_OPACITY = 0.38;
-const STREAK_MIN_OPACITY = 0.18;
-
-// Ambient web constants (secondary layer — depth/texture only)
-const AMBIENT_THRESHOLD = 120;
-const AMBIENT_MAX_OPACITY = 0.09;
-const MAX_AMBIENT = 150;
+const MARGIN = 28;
+const SPIRAL_SPACING = 25; // px between spiral rings
+const SPIRAL_JITTER = 18;  // ±px organic offset per star
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ~137.5° — Vogel sunflower
+const CLUSTER_THRESHOLD = 90;
+const GLOW_TIERS = 5;
 
 function xorshift(seed: number): number {
   seed ^= seed << 13;
@@ -41,45 +35,47 @@ function dateToSeed(date: string): number {
   return h === 0 ? 1 : h;
 }
 
-function computeLayout(n: number, w: number): { cols: number; cellSize: number; canvasHeight: number } {
-  if (n === 0) return { cols: 1, cellSize: MIN_CELL, canvasHeight: 280 };
-  const usableW = w - MARGIN * 2;
-  const cols = Math.min(MAX_COLS, Math.max(1, Math.floor(usableW / MIN_CELL)));
-  const rows = Math.ceil(n / cols);
-  const cellSize = usableW / cols; // square cells — isotropic jitter
-  const canvasHeight = Math.max(280, Math.ceil(rows * cellSize) + MARGIN * 2);
-  return { cols, cellSize, canvasHeight };
+// Canvas grows as the galaxy expands — height scales with outermost star radius.
+function computeCanvasHeight(n: number): number {
+  if (n === 0) return 280;
+  const maxR = Math.sqrt(n) * SPIRAL_SPACING + SPIRAL_JITTER + 20;
+  return Math.max(280, Math.ceil(maxR * 2) + MARGIN * 3);
 }
 
+// Vogel spiral (golden angle sunflower) — each star fans out at ~137.5° from the last,
+// so no two consecutive days land near each other. The result looks organic, never grid-like.
+// Today sits at the center; history spirals outward so the galaxy grows with every new day.
 function computePositions(
   dates: string[],
-  cols: number,
-  cellSize: number,
+  canvasWidth: number,
+  canvasHeight: number,
 ): Record<string, { x: number; y: number }> {
+  const cx = canvasWidth / 2;
+  const cy = canvasHeight / 2;
+  const n = dates.length;
   const result: Record<string, { x: number; y: number }> = {};
+
   dates.forEach((date, i) => {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
+    // Reverse: today (i = n-1) → spiral index 0 (center); oldest → outer edge
+    const si = n - 1 - i;
+
     let seed = dateToSeed(date);
-    const rx = xorshift(seed);
+    const rx = (xorshift(seed) - 0.5) * SPIRAL_JITTER * 2;
     seed = (seed * 1664525 + 1013904223) & 0xffffffff;
-    const ry = xorshift(seed === 0 ? 1 : seed);
+    const ry = (xorshift(seed === 0 ? 1 : seed) - 0.5) * SPIRAL_JITTER * 2;
+
+    const angle = si * GOLDEN_ANGLE;
+    const radius = Math.sqrt(si + 1) * SPIRAL_SPACING;
+
     result[date] = {
-      x: MARGIN + col * cellSize + cellSize * 0.1 + rx * cellSize * 0.8,
-      y: MARGIN + row * cellSize + cellSize * 0.1 + ry * cellSize * 0.8,
+      x: Math.max(MARGIN, Math.min(canvasWidth - MARGIN, cx + radius * Math.cos(angle) + rx)),
+      y: Math.max(MARGIN, Math.min(canvasHeight - MARGIN, cy + radius * Math.sin(angle) + ry)),
     };
   });
+
   return result;
 }
 
-interface FilamentLine {
-  x1: number; y1: number; x2: number; y2: number;
-  opacity: number;
-  strokeWidth: number;
-}
-
-// Map each present date to the length of its streak run.
-// Used to scale chain line weight — longer streak = thicker, brighter line.
 function computeStreakLengths(
   dates: string[],
   presentSet: Set<string>,
@@ -89,9 +85,7 @@ function computeStreakLengths(
   let runLen = 0;
 
   const commit = (end: number) => {
-    for (let j = runStart; j < end; j++) {
-      lengths[dates[j]] = runLen;
-    }
+    for (let j = runStart; j < end; j++) lengths[dates[j]] = runLen;
   };
 
   for (let i = 0; i < dates.length; i++) {
@@ -107,86 +101,111 @@ function computeStreakLengths(
   return lengths;
 }
 
-// Primary layer: connect consecutive present days.
-// Line weight and opacity scale with streak length so long runs read as bright constellations.
-function computeStreakChains(
-  dates: string[],
-  presentSet: Set<string>,
-  streakLengths: Record<string, number>,
-  positions: Record<string, { x: number; y: number }>,
-): FilamentLine[] {
-  const lines: FilamentLine[] = [];
-
-  for (let i = 0; i < dates.length - 1; i++) {
-    const curr = dates[i];
-    const next = dates[i + 1];
-    if (!presentSet.has(curr) || !presentSet.has(next)) continue;
-
-    const p1 = positions[curr];
-    const p2 = positions[next];
-    if (!p1 || !p2) continue;
-
-    // Longer streak → thicker, brighter line
-    const len = Math.max(streakLengths[curr] ?? 1, streakLengths[next] ?? 1);
-    const t = Math.min(1, (len - 2) / 8); // 0 at len=2, 1 at len=10+
-    const opacity = STREAK_MIN_OPACITY + t * (STREAK_MAX_OPACITY - STREAK_MIN_OPACITY);
-    const strokeWidth = 0.7 + t * 0.6; // 0.7px at len=2 → 1.3px at len=10+
-
-    lines.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, opacity, strokeWidth });
-  }
-
-  return lines;
+function streakToT(len: number): number {
+  if (len <= 1) return 0;
+  if (len <= 2) return 0.2;
+  if (len <= 4) return 0.4;
+  if (len <= 7) return 0.65;
+  return 1.0;
 }
 
-// Secondary layer: spatial proximity web, present days only, very faint.
-// Purely atmospheric — no meaning implied, just fills the canvas with depth.
-function computeAmbientFilaments(
-  presentDates: string[],
-  positions: Record<string, { x: number; y: number }>,
-): FilamentLine[] {
-  const buckets = new Map<string, string[]>();
+interface StarGlow {
+  date: string;
+  x: number;
+  y: number;
+  coreTier: number;
+  wideTier: number;
+  coreRadius: number;
+  wideRadius: number;
+  isTeal: boolean;
+}
 
-  for (const date of presentDates) {
+interface NebulaCloud {
+  x: number;
+  y: number;
+  radius: number;
+}
+
+function computeStarGlows(
+  dates: string[],
+  presentSet: Set<string>,
+  stats: Record<string, DayStats>,
+  streakLengths: Record<string, number>,
+  positions: Record<string, { x: number; y: number }>,
+): StarGlow[] {
+  const glows: StarGlow[] = [];
+
+  for (const date of dates) {
+    if (!presentSet.has(date)) continue;
     const pos = positions[date];
     if (!pos) continue;
-    const bx = Math.floor(pos.x / AMBIENT_THRESHOLD);
-    const by = Math.floor(pos.y / AMBIENT_THRESHOLD);
-    const key = `${bx},${by}`;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key)!.push(date);
+    const state = stats[date]?.state ?? 'full';
+    const streakLen = streakLengths[date] ?? 1;
+    let t = streakToT(streakLen);
+
+    if (state === 'partial') t *= 0.55;
+
+    const tier = Math.round(t * (GLOW_TIERS - 1));
+    const coreRadius = 22 + t * 14;
+    const wideRadius = 52 + t * 22;
+
+    glows.push({
+      date,
+      x: pos.x,
+      y: pos.y,
+      coreTier: tier,
+      wideTier: Math.max(0, tier - 1),
+      coreRadius,
+      wideRadius,
+      isTeal: state === 'return',
+    });
   }
 
-  const lines: FilamentLine[] = [];
+  return glows;
+}
 
-  for (const date of presentDates) {
-    const pos = positions[date];
-    if (!pos) continue;
-    const bx = Math.floor(pos.x / AMBIENT_THRESHOLD);
-    const by = Math.floor(pos.y / AMBIENT_THRESHOLD);
+function computeNebulaClouds(
+  presentDates: string[],
+  positions: Record<string, { x: number; y: number }>,
+): NebulaCloud[] {
+  if (presentDates.length < 3) return [];
 
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const neighbors = buckets.get(`${bx + dx},${by + dy}`);
-        if (!neighbors) continue;
-        for (const neighbor of neighbors) {
-          if (neighbor <= date) continue; // ISO ordering deduplicates pairs
-          const npos = positions[neighbor];
-          if (!npos) continue;
-          const dist = Math.sqrt((pos.x - npos.x) ** 2 + (pos.y - npos.y) ** 2);
-          if (dist < AMBIENT_THRESHOLD) {
-            lines.push({
-              x1: pos.x, y1: pos.y, x2: npos.x, y2: npos.y,
-              opacity: (1 - dist / AMBIENT_THRESHOLD) * AMBIENT_MAX_OPACITY,
-              strokeWidth: 0.5,
-            });
-          }
-        }
-      }
+  const parent: Record<string, string> = {};
+  const find = (x: string): string => {
+    if (parent[x] !== x) parent[x] = find(parent[x]);
+    return parent[x];
+  };
+  const union = (a: string, b: string) => { parent[find(a)] = find(b); };
+
+  for (const d of presentDates) parent[d] = d;
+
+  for (let i = 0; i < presentDates.length; i++) {
+    for (let j = i + 1; j < presentDates.length; j++) {
+      const a = presentDates[i], b = presentDates[j];
+      const pa = positions[a], pb = positions[b];
+      if (!pa || !pb) continue;
+      const dist = Math.sqrt((pa.x - pb.x) ** 2 + (pa.y - pb.y) ** 2);
+      if (dist < CLUSTER_THRESHOLD) union(a, b);
     }
   }
 
-  if (lines.length <= MAX_AMBIENT) return lines;
-  return lines.sort((a, b) => b.opacity - a.opacity).slice(0, MAX_AMBIENT);
+  const groups = new Map<string, string[]>();
+  for (const d of presentDates) {
+    const root = find(d);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root)!.push(d);
+  }
+
+  const clouds: NebulaCloud[] = [];
+  for (const [, members] of groups) {
+    if (members.length < 3) continue;
+    const cx = members.reduce((s, d) => s + positions[d].x, 0) / members.length;
+    const cy = members.reduce((s, d) => s + positions[d].y, 0) / members.length;
+    const radius = Math.min(110, 65 + members.length * 4);
+    clouds.push({ x: cx, y: cy, radius });
+  }
+
+  return clouds;
 }
 
 const STAR_SIZE: Record<StarState, number> = {
@@ -203,59 +222,100 @@ const TODAY_RING = 34;
 const PRESENT_STATES = new Set<StarState>(['full', 'partial', 'return']);
 
 export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPressStar }: Props) {
-  const { cols, cellSize, canvasHeight } = useMemo(
-    () => computeLayout(dates.length, canvasWidth),
-    [dates.length, canvasWidth],
+  const canvasHeight = useMemo(
+    () => computeCanvasHeight(dates.length),
+    [dates.length],
   );
 
   const positions = useMemo(
-    () => computePositions(dates, cols, cellSize),
-    [dates, cols, cellSize],
+    () => computePositions(dates, canvasWidth, canvasHeight),
+    [dates, canvasWidth, canvasHeight],
   );
 
-  const { streakChains, ambientFilaments } = useMemo(() => {
-    // Present = days where user actually showed up (not forced-including today)
+  const { starGlows, nebulaClouds } = useMemo(() => {
     const presentSet = new Set(
       dates.filter(d => PRESENT_STATES.has(stats[d]?.state ?? 'future'))
     );
-    // Today joins the ambient web if it has any state (draws it into the texture)
-    const ambientSet = new Set([
-      ...presentSet,
-      ...(PRESENT_STATES.has(stats[today]?.state ?? 'future') ? [today] : []),
-    ]);
     const streakLengths = computeStreakLengths(dates, presentSet);
     return {
-      streakChains:     computeStreakChains(dates, presentSet, streakLengths, positions),
-      ambientFilaments: computeAmbientFilaments([...ambientSet], positions),
+      starGlows:    computeStarGlows(dates, presentSet, stats, streakLengths, positions),
+      nebulaClouds: computeNebulaClouds([...presentSet], positions),
     };
-  }, [dates, positions, stats, today]);
+  }, [dates, positions, stats]);
+
+  const tierOpacities = useMemo(() =>
+    Array.from({ length: GLOW_TIERS }, (_, tier) => {
+      const t = tier / (GLOW_TIERS - 1);
+      return {
+        core: 0.16 + t * 0.22,
+        wide: 0.04 + t * 0.03,
+      };
+    }),
+  []);
 
   return (
-    <View style={{ width: canvasWidth, height: canvasHeight, position: 'relative' }}>
+    <View style={{ width: canvasWidth, height: canvasHeight, position: 'relative', overflow: 'hidden' }}>
       <Svg
         width={canvasWidth}
         height={canvasHeight}
         style={{ position: 'absolute', top: 0, left: 0 }}
         pointerEvents="none"
       >
-        {/* Ambient web — drawn first so streak chains sit on top */}
-        {ambientFilaments.map((l, i) => (
-          <Line
-            key={`a${i}`}
-            x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-            stroke={Colors.textPrimary}
-            strokeWidth={l.strokeWidth}
-            strokeOpacity={l.opacity}
+        <Defs>
+          <RadialGradient id="nebula" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%"   stopColor={Colors.textPrimary} stopOpacity={0.055} />
+            <Stop offset="50%"  stopColor={Colors.textPrimary} stopOpacity={0.022} />
+            <Stop offset="100%" stopColor={Colors.textPrimary} stopOpacity={0} />
+          </RadialGradient>
+
+          {tierOpacities.map((ops, tier) => (
+            <React.Fragment key={`wt${tier}`}>
+              <RadialGradient id={`core_w${tier}`} cx="50%" cy="50%" r="50%">
+                <Stop offset="0%"   stopColor={Colors.textPrimary} stopOpacity={ops.core} />
+                <Stop offset="45%"  stopColor={Colors.textPrimary} stopOpacity={ops.core * 0.35} />
+                <Stop offset="100%" stopColor={Colors.textPrimary} stopOpacity={0} />
+              </RadialGradient>
+              <RadialGradient id={`wide_w${tier}`} cx="50%" cy="50%" r="50%">
+                <Stop offset="0%"   stopColor={Colors.textPrimary} stopOpacity={ops.wide} />
+                <Stop offset="65%"  stopColor={Colors.textPrimary} stopOpacity={ops.wide * 0.3} />
+                <Stop offset="100%" stopColor={Colors.textPrimary} stopOpacity={0} />
+              </RadialGradient>
+            </React.Fragment>
+          ))}
+
+          {tierOpacities.map((ops, tier) => (
+            <React.Fragment key={`tt${tier}`}>
+              <RadialGradient id={`core_t${tier}`} cx="50%" cy="50%" r="50%">
+                <Stop offset="0%"   stopColor={Colors.tealText} stopOpacity={ops.core} />
+                <Stop offset="45%"  stopColor={Colors.tealText} stopOpacity={ops.core * 0.35} />
+                <Stop offset="100%" stopColor={Colors.tealText} stopOpacity={0} />
+              </RadialGradient>
+              <RadialGradient id={`wide_t${tier}`} cx="50%" cy="50%" r="50%">
+                <Stop offset="0%"   stopColor={Colors.tealText} stopOpacity={ops.wide} />
+                <Stop offset="65%"  stopColor={Colors.tealText} stopOpacity={ops.wide * 0.3} />
+                <Stop offset="100%" stopColor={Colors.tealText} stopOpacity={0} />
+              </RadialGradient>
+            </React.Fragment>
+          ))}
+        </Defs>
+
+        {nebulaClouds.map((nc, i) => (
+          <Circle key={`nc${i}`} cx={nc.x} cy={nc.y} r={nc.radius} fill="url(#nebula)" />
+        ))}
+
+        {starGlows.map(g => (
+          <Circle
+            key={`w${g.date}`}
+            cx={g.x} cy={g.y} r={g.wideRadius}
+            fill={`url(#wide_${g.isTeal ? 't' : 'w'}${g.wideTier})`}
           />
         ))}
-        {/* Streak chains — meaningful layer */}
-        {streakChains.map((l, i) => (
-          <Line
-            key={`s${i}`}
-            x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-            stroke={Colors.textPrimary}
-            strokeWidth={l.strokeWidth}
-            strokeOpacity={l.opacity}
+
+        {starGlows.map(g => (
+          <Circle
+            key={`c${g.date}`}
+            cx={g.x} cy={g.y} r={g.coreRadius}
+            fill={`url(#core_${g.isTeal ? 't' : 'w'}${g.coreTier})`}
           />
         ))}
       </Svg>
