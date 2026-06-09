@@ -67,7 +67,7 @@ export function getRangeStats(dates: string[]): DayStats[] {
 
 // ─── All dates that should be counted (official range + any retroactive logs) ─
 
-function getEffectiveDates(startDate: string): string[] {
+export function getEffectiveDates(startDate: string): string[] {
   const today = getLogicalDate();
   const official = new Set(dateRangeFromStart(startDate));
   const logged = getAllLogDates().filter((d) => d <= today);

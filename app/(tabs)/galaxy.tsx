@@ -10,7 +10,6 @@ import PastDayEditSheet from '@/components/PastDayEditSheet';
 import { getUser, getAllLogDates, getLogEntry } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
 import {
-  dateRangeFromStart,
   getLogicalDate,
   formatDate,
   parseDate,
@@ -20,6 +19,7 @@ import {
   getDayStats,
   getPresentDaysCount,
   getPresenceRate,
+  getEffectiveDates,
 } from '@/lib/presence';
 import { getStreakData } from '@/lib/storage';
 import type { DayStats, Habit, StarState } from '@/types';
@@ -164,10 +164,11 @@ export default function GalaxyScreen() {
 
   const loadStats = useCallback(() => {
     if (!user) return;
-    const dates = dateRangeFromStart(user.startDate);
-    // Include current week and month so views show correct data for days
-    // that have log entries but fall before the official start date
-    const allDates = [...new Set([...dates, ...getWeekDates(), ...getMonthDates()])];
+    // getEffectiveDates unions dateRangeFromStart with all stored log dates,
+    // so days logged before the official startDate (e.g. via developer mode)
+    // are included in both the stats map and the galaxy canvas.
+    const effectiveDates = getEffectiveDates(user.startDate);
+    const allDates = [...new Set([...effectiveDates, ...getWeekDates(), ...getMonthDates()])];
     const map: Record<string, DayStats> = {};
     for (const d of allDates) {
       map[d] = getDayStats(d);
@@ -189,7 +190,7 @@ export default function GalaxyScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const weekDates = getWeekDates();
   const monthWeeks = getMonthWeeks();
-  const allDates = dateRangeFromStart(user.startDate);
+  const allDates = getEffectiveDates(user.startDate);
   const canvasWidth = screenWidth - canvasPaddingH * 2;
   const today = getLogicalDate();
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-06-09 — Bug fix: galaxy missing star for days logged before start date
+
+### Bug fixes
+
+- **Galaxy showing fewer stars than days present** — if a day was logged before the user's official `startDate` (e.g. via developer mode), `getPresentDaysCount` counted it (via `getEffectiveDates`) but the galaxy canvas only received dates from `dateRangeFromStart(user.startDate)` — so that star never rendered. Fixed by exporting `getEffectiveDates` from `presence.ts` and using it for both the stats map and the `dates` prop passed to `CosmosCanvas` in `galaxy.tsx`.
+
+---
+
 ## 2026-06-09 — Bug fixes: status bar, data consistency, habit editing
 
 ### Bug fixes
