@@ -91,7 +91,7 @@ export function getPresentDaysCount(startDate: string): number {
 // ─── Presence rate ────────────────────────────────────────────────────────────
 
 export function getPresenceRate(startDate: string): number {
-  const dates = dateRangeFromStart(startDate);
+  const dates = getEffectiveDates(startDate);
   if (dates.length === 0) return 0;
   const present = getPresentDaysCount(startDate);
   return Math.round((present / dates.length) * 100);

@@ -1,12 +1,12 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
-import { getUser, getReflection, setReflection, getAllLogDates, getLogEntry } from '@/lib/storage';
-import { getLogicalDate, dateRangeFromStart, formatDate } from '@/lib/dayBoundary';
+import { getReflection, setReflection, getLogEntry } from '@/lib/storage';
+import { formatDate } from '@/lib/dayBoundary';
 
 const PHASE1_QUESTIONS = [
   'Did I show up more days than not?',
@@ -59,13 +59,14 @@ function getBodyWordPattern(words: string[]): string | null {
 }
 
 export default function ReflectionScreen() {
-  const user = getUser();
   const sundayKey = getSundayKey();
   const questions = PHASE1_QUESTIONS; // Phase 1 only for Build Phase 1
   const [answers, setAnswers] = useState<string[]>(() => {
-    const saved = getReflection(sundayKey);
-    return saved?.answers ?? Array(questions.length).fill('');
+    const existing = getReflection(sundayKey);
+    return existing?.answers ?? Array(questions.length).fill('');
   });
+  const [saved, setSaved] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyWords = getWeekBodyWords();
   const bodyWordPattern = getBodyWordPattern(bodyWords);
 
@@ -73,11 +74,15 @@ export default function ReflectionScreen() {
     const next = [...answers];
     next[i] = text;
     setAnswers(next);
+    setReflection(sundayKey, { answers: next });
   }
 
   function handleSave() {
     setReflection(sundayKey, { answers });
-    router.back();
+    setSaved(true);
+    saveTimer.current = setTimeout(() => {
+      router.back();
+    }, 600);
   }
 
   return (
@@ -137,7 +142,7 @@ export default function ReflectionScreen() {
           ))}
         </View>
 
-        <Button label="save" onPress={handleSave} style={styles.save} />
+        <Button label={saved ? 'saved.' : 'save'} onPress={handleSave} style={styles.save} />
       </ScrollView>
     </SafeAreaView>
   );
