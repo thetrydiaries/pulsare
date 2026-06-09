@@ -13,11 +13,12 @@ interface Props {
   onPressStar: (date: string) => void;
 }
 
-const MARGIN = 20;
-const MIN_CELL = 40;
-const FILAMENT_THRESHOLD = 90;
-const FILAMENT_MAX_OPACITY = 0.14;
-const MAX_FILAMENTS = 120;
+const MARGIN = 24;
+const MIN_CELL = 56;   // minimum cell size — drives how many columns fit
+const MAX_COLS = 8;    // caps flat wide-screen layouts to keep the web preview representative
+const FILAMENT_THRESHOLD = 120;
+const FILAMENT_MAX_OPACITY = 0.45;
+const MAX_FILAMENTS = 150;
 
 function xorshift(seed: number): number {
   seed ^= seed << 13;
@@ -34,30 +35,22 @@ function dateToSeed(date: string): number {
   return h === 0 ? 1 : h;
 }
 
-function computeLayout(n: number, w: number): { cols: number; canvasHeight: number } {
-  if (n === 0) return { cols: 1, canvasHeight: 360 };
+function computeLayout(n: number, w: number): { cols: number; cellSize: number; canvasHeight: number } {
+  if (n === 0) return { cols: 1, cellSize: MIN_CELL, canvasHeight: 280 };
   const usableW = w - MARGIN * 2;
-  const cols = Math.max(1, Math.floor(usableW / MIN_CELL));
+  const cols = Math.min(MAX_COLS, Math.max(1, Math.floor(usableW / MIN_CELL)));
   const rows = Math.ceil(n / cols);
+  // Square cells — cellSize drives BOTH width and height so jitter is isotropic
   const cellSize = usableW / cols;
-  const canvasHeight = Math.max(360, Math.ceil(rows * cellSize) + MARGIN * 2);
-  return { cols, canvasHeight };
+  const canvasHeight = Math.max(280, Math.ceil(rows * cellSize) + MARGIN * 2);
+  return { cols, cellSize, canvasHeight };
 }
 
 function computePositions(
   dates: string[],
-  w: number,
-  h: number,
   cols: number,
+  cellSize: number,
 ): Record<string, { x: number; y: number }> {
-  const n = dates.length;
-  if (n === 0) return {};
-  const usableW = w - MARGIN * 2;
-  const usableH = h - MARGIN * 2;
-  const rows = Math.ceil(n / cols);
-  const cellW = usableW / cols;
-  const cellH = usableH / rows;
-
   const result: Record<string, { x: number; y: number }> = {};
   dates.forEach((date, i) => {
     const col = i % cols;
@@ -67,8 +60,8 @@ function computePositions(
     seed = (seed * 1664525 + 1013904223) & 0xffffffff;
     const ry = xorshift(seed === 0 ? 1 : seed);
     result[date] = {
-      x: MARGIN + col * cellW + cellW * 0.1 + rx * cellW * 0.8,
-      y: MARGIN + row * cellH + cellH * 0.1 + ry * cellH * 0.8,
+      x: MARGIN + col * cellSize + cellSize * 0.1 + rx * cellSize * 0.8,
+      y: MARGIN + row * cellSize + cellSize * 0.1 + ry * cellSize * 0.8,
     };
   });
   return result;
@@ -78,7 +71,7 @@ interface FilamentLine {
   x1: number; y1: number; x2: number; y2: number; opacity: number;
 }
 
-// Spatial bucketing: O(n) average vs O(n²) — only checks 3×3 cell neighbourhood per star
+// Spatial bucketing: O(n) average — only checks 3×3 cell neighbourhood per star
 function computeFilaments(
   presentDates: string[],
   positions: Record<string, { x: number; y: number }>,
@@ -125,29 +118,32 @@ function computeFilaments(
   }
 
   if (lines.length <= MAX_FILAMENTS) return lines;
-  // Keep strongest connections (highest opacity = closest)
+  // Keep strongest connections (closest pairs have highest opacity)
   return lines.sort((a, b) => b.opacity - a.opacity).slice(0, MAX_FILAMENTS);
 }
 
 const STAR_SIZE: Record<StarState, number> = {
-  full: 6.5,
-  return: 7,
-  partial: 3.8,
-  missed: 2,
-  future: 2.2,
+  full:    20,
+  return:  22,
+  partial: 13,
+  missed:  10,
+  future:  7,
 };
+
+const TODAY_SIZE = 24;
+const TODAY_RING = 40;
 
 const PRESENT_STATES = new Set<StarState>(['full', 'partial', 'return']);
 
 export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPressStar }: Props) {
-  const { cols, canvasHeight } = useMemo(
+  const { cols, cellSize, canvasHeight } = useMemo(
     () => computeLayout(dates.length, canvasWidth),
     [dates.length, canvasWidth],
   );
 
   const positions = useMemo(
-    () => computePositions(dates, canvasWidth, canvasHeight, cols),
-    [dates, canvasWidth, canvasHeight, cols],
+    () => computePositions(dates, cols, cellSize),
+    [dates, cols, cellSize],
   );
 
   const filaments = useMemo(() => {
@@ -171,7 +167,7 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
             key={i}
             x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
             stroke={Colors.textPrimary}
-            strokeWidth={0.5}
+            strokeWidth={1}
             strokeOpacity={l.opacity}
           />
         ))}
@@ -183,19 +179,34 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
         const isToday = date === today;
         const s = stats[date];
         const state: StarState = s?.state ?? (date <= today ? 'missed' : 'future');
-        const starSize = isToday ? 9 : STAR_SIZE[state];
+        const starSize = isToday ? TODAY_SIZE : STAR_SIZE[state];
         const isPast = date < today;
+
+        // Soft glow behind full/return stars
+        const showGlow = state === 'full' || state === 'return';
+        const glowSize = starSize * 2.8;
 
         const inner = (
           <>
+            {showGlow && (
+              <View style={{
+                position: 'absolute',
+                width: glowSize,
+                height: glowSize,
+                borderRadius: glowSize / 2,
+                backgroundColor: state === 'return' ? Colors.tealText : Colors.textPrimary,
+                opacity: 0.07,
+              }} />
+            )}
             {isToday && (
               <View style={{
                 position: 'absolute',
-                width: 18, height: 18,
-                borderRadius: 9,
-                borderWidth: 0.5,
+                width: TODAY_RING,
+                height: TODAY_RING,
+                borderRadius: TODAY_RING / 2,
+                borderWidth: 1,
                 borderColor: Colors.textPrimary,
-                opacity: 0.12,
+                opacity: 0.2,
               }} />
             )}
             <StarMark state={state} size={starSize} />
