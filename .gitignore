@@ -44,3 +44,4 @@ yarn-error.*
 !/ios/Pulsare.xcodeproj/
 /ios/Pulsare.xcodeproj/*
 !/ios/Pulsare.xcodeproj/project.pbxproj
+.vercel
