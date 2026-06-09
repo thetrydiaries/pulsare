@@ -276,14 +276,17 @@ export default function HomeScreen() {
     if (!user) return;
 
     if (editingHabit) {
-      // Edit existing
-      const oldNotif = editingHabit.customNotificationTime;
-      editCustomHabit(editingHabit.id, name, group, notificationTime, reason);
-      // Handle notification changes
-      if (notificationTime) {
-        await scheduleCustomHabitNotification(name, notificationTime);
-      } else if (oldNotif) {
-        await cancelCustomHabitNotification();
+      if (editingHabit.isCustom) {
+        const oldNotif = editingHabit.customNotificationTime;
+        editCustomHabit(editingHabit.id, name, group, notificationTime, reason);
+        if (notificationTime) {
+          await scheduleCustomHabitNotification(name, notificationTime);
+        } else if (oldNotif) {
+          await cancelCustomHabitNotification();
+        }
+      } else {
+        // System habit — only rename via userLabel
+        upsertHabit({ ...editingHabit, userLabel: name });
       }
       setEditingHabit(null);
     } else {
@@ -428,7 +431,7 @@ export default function HomeScreen() {
               nudge={showNudge}
               onToggle={handleToggle}
               onRemove={h.isCustom ? () => handleRemoveHabit(h.id) : undefined}
-              onEdit={h.isCustom ? () => handleOpenEdit(h) : undefined}
+              onEdit={() => handleOpenEdit(h)}
               onGuide={h.id === breathworkHabitId ? () => setGuideVisible(true) : undefined}
             />
           ))}
@@ -454,7 +457,7 @@ export default function HomeScreen() {
               completed={!!completed[h.id]}
               onToggle={handleToggle}
               onRemove={h.isCustom ? () => handleRemoveHabit(h.id) : undefined}
-              onEdit={h.isCustom ? () => handleOpenEdit(h) : undefined}
+              onEdit={() => handleOpenEdit(h)}
             />
           ))}
           {customEveningCount < 2 && (

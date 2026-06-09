@@ -47,6 +47,7 @@ function getExistingCustomNotifHabit(excludeId?: string): Habit | null {
 
 export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onClose, onSave }: Props) {
   const isEdit = !!editHabit;
+  const isSystemEdit = isEdit && !editHabit?.isCustom;
 
   const [name, setName] = useState('');
   const [group, setGroup] = useState<'morning' | 'evening'>(defaultGroup);
@@ -57,7 +58,7 @@ export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onC
   useEffect(() => {
     if (visible) {
       if (editHabit) {
-        setName(editHabit.label);
+        setName(editHabit.userLabel ?? editHabit.label);
         setGroup(editHabit.group);
         const hasNotif = !!editHabit.customNotificationTime;
         setShowNotif(hasNotif);
@@ -130,7 +131,7 @@ export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onC
               accessibilityLabel="habit name"
             />
 
-            {nameEntered && (
+            {nameEntered && !isSystemEdit && (
               <View style={styles.toggleRow}>
                 <TouchableOpacity
                   style={[styles.pill, group === 'morning' && styles.pillSelected]}
@@ -161,7 +162,7 @@ export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onC
               </View>
             )}
 
-            {nameEntered && (
+            {nameEntered && !isSystemEdit && (
               <View style={styles.optionalSection}>
                 <TouchableOpacity
                   style={styles.optionalToggle}
@@ -193,7 +194,7 @@ export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onC
               </View>
             )}
 
-            {nameEntered && (
+            {nameEntered && !isSystemEdit && (
               <View style={styles.optionalSection}>
                 <Text variant="label" color={Colors.textTertiary} style={styles.reasonLabel}>
                   why does this matter to you? (optional)

@@ -63,7 +63,7 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
   }
 
   function handleLongPress() {
-    if (habit.isCustom && (onEdit || onRemove)) setShowActions(true);
+    if (onEdit || onRemove) setShowActions(true);
   }
 
   function handleEditTap() {
@@ -130,9 +130,9 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
     >
       <TouchableOpacity
         style={styles.labelBlock}
-        onLongPress={habit.isCustom && (onEdit || onRemove) ? handleLongPress : undefined}
+        onLongPress={(onEdit || onRemove) ? handleLongPress : undefined}
         delayLongPress={500}
-        activeOpacity={habit.isCustom && (onEdit || onRemove) ? 0.7 : 1}
+        activeOpacity={(onEdit || onRemove) ? 0.7 : 1}
         accessible={false}
       >
         <View style={styles.labelRow}>

@@ -165,8 +165,11 @@ export default function GalaxyScreen() {
   const loadStats = useCallback(() => {
     if (!user) return;
     const dates = dateRangeFromStart(user.startDate);
+    // Include current week and month so views show correct data for days
+    // that have log entries but fall before the official start date
+    const allDates = [...new Set([...dates, ...getWeekDates(), ...getMonthDates()])];
     const map: Record<string, DayStats> = {};
-    for (const d of dates) {
+    for (const d of allDates) {
       map[d] = getDayStats(d);
     }
     setStats(map);
