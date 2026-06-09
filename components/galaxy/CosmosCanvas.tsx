@@ -17,7 +17,7 @@ const MARGIN = 24;
 const MIN_CELL = 56;   // minimum cell size — drives how many columns fit
 const MAX_COLS = 8;    // caps flat wide-screen layouts to keep the web preview representative
 const FILAMENT_THRESHOLD = 120;
-const FILAMENT_MAX_OPACITY = 0.45;
+const FILAMENT_MAX_OPACITY = 0.32;
 const MAX_FILAMENTS = 150;
 
 function xorshift(seed: number): number {
@@ -130,8 +130,8 @@ const STAR_SIZE: Record<StarState, number> = {
   future:  7,
 };
 
-const TODAY_SIZE = 24;
-const TODAY_RING = 40;
+const TODAY_SIZE = 22;
+const TODAY_RING = 34;
 
 const PRESENT_STATES = new Set<StarState>(['full', 'partial', 'return']);
 
@@ -182,22 +182,8 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
         const starSize = isToday ? TODAY_SIZE : STAR_SIZE[state];
         const isPast = date < today;
 
-        // Soft glow behind full/return stars
-        const showGlow = state === 'full' || state === 'return';
-        const glowSize = starSize * 2.8;
-
         const inner = (
           <>
-            {showGlow && (
-              <View style={{
-                position: 'absolute',
-                width: glowSize,
-                height: glowSize,
-                borderRadius: glowSize / 2,
-                backgroundColor: state === 'return' ? Colors.tealText : Colors.textPrimary,
-                opacity: 0.07,
-              }} />
-            )}
             {isToday && (
               <View style={{
                 position: 'absolute',
