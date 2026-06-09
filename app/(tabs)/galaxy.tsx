@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import StarMark from '@/components/galaxy/StarMark';
+import CosmosCanvas from '@/components/galaxy/CosmosCanvas';
 import PastDayEditSheet from '@/components/PastDayEditSheet';
 import { getUser, getAllLogDates, getLogEntry } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
@@ -77,34 +78,6 @@ function getWeekDates(): string[] {
   });
 }
 
-function getMonthDates(): string[] {
-  const today = new Date();
-  const first = new Date(today.getFullYear(), today.getMonth(), 1);
-  const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  const dates: string[] = [];
-  const cursor = new Date(first);
-  while (cursor <= last) {
-    dates.push(formatDate(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return dates;
-}
-
-// Returns month dates padded to start on Monday, grouped into rows of 7.
-function getMonthWeeks(): (string | null)[][] {
-  const dates = getMonthDates();
-  const firstDow = (parseDate(dates[0]).getDay() + 6) % 7;
-  const padded: (string | null)[] = [
-    ...Array(firstDow).fill(null),
-    ...dates,
-  ];
-  while (padded.length % 7 !== 0) padded.push(null);
-  const weeks: (string | null)[][] = [];
-  for (let i = 0; i < padded.length; i += 7) {
-    weeks.push(padded.slice(i, i + 7));
-  }
-  return weeks;
-}
 
 function deterministicOffset(dateString: string): { x: number; y: number } {
   let hash = 0;
@@ -173,26 +146,24 @@ export default function GalaxyScreen() {
     for (const d of dates) {
       map[d] = getDayStats(d);
     }
-    const monthDates = getMonthDates();
-    for (const d of monthDates) {
-      if (!map[d]) map[d] = { date: d, state: 'future', habitsComplete: 0, habitsTotal: 0 };
-    }
     setStats(map);
     setPresentDays(getPresentDaysCount(user.startDate));
     setPresenceRate(getPresenceRate(user.startDate));
     setStreak(getStreakData().currentStreak);
 
-    const habits = sortHabitsForAnchors(getActiveHabits(user.phase));
+    const habits = sortHabitsForAnchors(getActiveHabits(user.currentPhase));
     setAnchorHabits(habits);
     setLifetimeCounts(computeLifetimeCounts(habits));
-  }, [user?.startDate, user?.phase]);
+  }, [user?.startDate, user?.currentPhase]);
 
   useFocusEffect(loadStats);
 
   if (!user) return null;
 
+  const { width: screenWidth } = useWindowDimensions();
   const weekDates = getWeekDates();
-  const monthWeeks = getMonthWeeks();
+  const allDates = dateRangeFromStart(user.startDate);
+  const canvasWidth = screenWidth - canvasPaddingH * 2;
   const today = getLogicalDate();
 
   const weekNum = getWeekNumber(user.startDate);
@@ -292,53 +263,16 @@ export default function GalaxyScreen() {
           </View>
         )}
 
-        {/* Month view — explicit rows to avoid float-precision column misalignment */}
+        {/* Cosmic web view — all days since startDate, absolute-positioned with SVG filaments */}
         {tab === 'month' && (
-          <View style={{ paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }}>
-            <View style={styles.dayHeaderRow}>
-              {DAY_LETTERS.map((l, i) => (
-                <View key={i} style={styles.gridCell}>
-                  <Text variant="micro" style={styles.dayHeaderLabel}>{l}</Text>
-                </View>
-              ))}
-            </View>
-            {monthWeeks.map((week, wi) => (
-              <View key={wi} style={styles.monthWeekRow}>
-                {week.map((d, ci) => {
-                  if (!d) return <View key={`pad-${wi}-${ci}`} style={styles.gridCell} />;
-                  const s = stats[d] ?? { date: d, state: d <= today ? 'missed' : 'future', habitsComplete: 0, habitsTotal: 0 };
-                  const offset = deterministicOffset(d);
-                  const isPast = d < today && d >= user.startDate;
-                  const starContent = (
-                    <View style={styles.monthStarContainer}>
-                      <StarMark state={s.state} />
-                    </View>
-                  );
-                  if (isPast) {
-                    return (
-                      <TouchableOpacity
-                        key={d}
-                        style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
-                        onPress={() => setEditDate(d)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`edit ${d}`}
-                        activeOpacity={0.6}
-                      >
-                        {starContent}
-                      </TouchableOpacity>
-                    );
-                  }
-                  return (
-                    <View
-                      key={d}
-                      style={[styles.gridCell, { transform: [{ translateX: offset.x }, { translateY: offset.y }] }]}
-                    >
-                      {starContent}
-                    </View>
-                  );
-                })}
-              </View>
-            ))}
+          <View style={{ paddingLeft: canvasPaddingH, paddingRight: canvasPaddingH }}>
+            <CosmosCanvas
+              dates={allDates}
+              stats={stats}
+              today={today}
+              canvasWidth={canvasWidth}
+              onPressStar={(date) => setEditDate(date)}
+            />
           </View>
         )}
 
@@ -513,30 +447,6 @@ const styles = StyleSheet.create({
   },
   weekDateNum: {
     textAlign: 'center',
-  },
-
-  // Month view
-  dayHeaderRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  dayHeaderLabel: {
-    textAlign: 'center',
-  },
-  monthWeekRow: {
-    flexDirection: 'row',
-  },
-  gridCell: {
-    flex: 1,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthStarContainer: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   // Anchors tab
