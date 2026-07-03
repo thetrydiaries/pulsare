@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-07-04 — Phase 5: week-1 gradual reveal, warmer re-entry, contrast
+
+Final phase of the experience-review roadmap. Polish that lowers the barrier to staying.
+
+- **Week-1 gradual reveal** — all phase-1 anchors still exist from day 1 (so presence/stats are never retroactively affected), but the home screen only *shows* the 3 circadian core on day 1, with evening/movement/breathwork joining on days 2/4/6. Each arrival gets a one-line "joins your anchors today" beat. Display-only: `REVEAL_DAY` + `getRevealedHabits`/`habitRevealDay` in `lib/habits.ts`, filtered into `setHabits` in home; never flows into presence math (verified by qa-review).
+- **Warmer re-entry** — falloff screen dropped the "you were away for N days" counter (a scoreboard you had to face on return) for "you're back." / "however long it's been, it doesn't undo what you built." / "pick it back up".
+- **Contrast** — `textTertiary` #6b6660 → #8c857c (5.37:1 on #0c0c0c, clears WCAG AA).
+- Verified days 1/2/4/6 reveal, month view, and falloff in-browser on mobile. SW cache → pulsare-v6.
+
+## 2026-07-03 — Phase 4: onboarding cut 14 → 7 screens
+
+- Kept welcome (now folds the mood question + a one-line ethos), name, wake-time, movement, evening, notifications, handoff (folds the if-then "anchors" line).
+- Cut mood, science, breathwork, custom-habit, project, start-date, intentions — data is either defaulted (breathwork → generic anchor, startDate → today, project → null) or captured later as progressive moments (project via the Phase 3 week-3 tease, custom habit via the Phase 2 unlock + home "+").
+- Added `ONBOARDING_FLOW_VERSION` resume gating so stale progress from the old 14-screen flow can't resolve to the wrong new screen (qa-review caught this silently skipping wake-time). SW cache → pulsare-v5.
+
+## 2026-07-03 — Phase 3: real phase progression + week 2-4 reward beats
+
+- Root cause of the week-3 fall-off found here: `currentPhase` was set to 1 at onboarding and never advanced, so phases 2/3 and the week-4 project promise never fired.
+- Built `lib/progression.ts`: phase 2 unlocks day 8, phase 3 day 22, paced one-per-open with a 3-day min gap. Full-screen unlock moment (`app/unlock.tsx`, pick-one-habit, begin/defer; fires on the return day after a lapse). Week-3 project tease card. Galaxy milestones (7/14/21/30 days): one-time card + permanent field-glow deepening. SW cache → pulsare-v4.
+
 ## 2026-07-03 — Review fixes: date bugs, accumulate-only stats, backup, web push, API key moved server-side
 
 Acted on the experience review + June pre-launch audit. Phases 1–2 of the plan.
