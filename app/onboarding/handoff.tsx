@@ -79,7 +79,7 @@ export default function HandoffScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={13} current={13} />
+        <PipIndicator total={7} current={6} />
 
         <View style={styles.content}>
           <Text variant="serif" size={28} style={styles.headline}>
@@ -98,6 +98,10 @@ export default function HandoffScreen() {
             <SummaryRow label="water before coffee" value="every morning" />
             <SummaryRow label={eveningLabel} value={`from ${formatTime(windDown)}`} />
           </View>
+
+          <Text variant="label" color={Colors.textTertiary} style={styles.anchorNote}>
+            these aren't rules. they're anchors — the sequence is the science. read them once and your brain does the rest.
+          </Text>
 
           <Text variant="label" style={styles.bedNote}>
             to keep your {formatTime(wakeTime)} anchor, aim to be in bed by {formatTime(bedtime)}. sleep is where the repair happens.
@@ -143,5 +147,6 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   rowLabel: { flex: 1, fontSize: 14 },
+  anchorNote: { lineHeight: 20, fontSize: 12 },
   bedNote: { lineHeight: 20, fontSize: 12 },
 });

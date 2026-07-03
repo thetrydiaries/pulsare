@@ -20,8 +20,8 @@ export default function NotificationsScreen() {
     storage.set('onboarding.notif.morning', morning);
     storage.set('onboarding.notif.movement', movement);
     storage.set('onboarding.notif.windDown', windDown);
-    setOnboardingLastScreen(9);
-    router.push('/onboarding/project');
+    setOnboardingLastScreen(5);
+    router.push('/onboarding/handoff');
   }
 
   return (
@@ -30,7 +30,7 @@ export default function NotificationsScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={13} current={9} />
+        <PipIndicator total={7} current={5} />
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>

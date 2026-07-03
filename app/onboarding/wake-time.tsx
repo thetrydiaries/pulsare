@@ -14,7 +14,7 @@ export default function WakeTimeScreen() {
 
   function handleNext() {
     storage.set('onboarding.wakeTime', wakeTime);
-    setOnboardingLastScreen(4);
+    setOnboardingLastScreen(2);
     router.push('/onboarding/movement');
   }
 
@@ -25,7 +25,7 @@ export default function WakeTimeScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={12} current={4} />
+        <PipIndicator total={7} current={2} />
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>

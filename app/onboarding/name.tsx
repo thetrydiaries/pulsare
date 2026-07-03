@@ -22,7 +22,7 @@ export default function NameScreen() {
     if (!trimmed) return;
     storage.set('onboarding.name', trimmed);
     setOnboardingLastScreen(1);
-    router.push('/onboarding/mood');
+    router.push('/onboarding/wake-time');
   }
 
   return (
@@ -32,7 +32,7 @@ export default function NameScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.container}>
-          <PipIndicator total={12} current={1} />
+          <PipIndicator total={7} current={1} />
 
           <View style={styles.content}>
             <Text variant="serif" size={28} style={styles.question}>

@@ -44,8 +44,8 @@ export default function MovementScreen() {
     if (userLabel.trim()) {
       storage.set('onboarding.movementUserLabel', userLabel.trim());
     }
-    setOnboardingLastScreen(5);
-    router.push('/onboarding/breathwork');
+    setOnboardingLastScreen(3);
+    router.push('/onboarding/evening');
   }
 
   return (
@@ -55,7 +55,7 @@ export default function MovementScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={12} current={5} />
+        <PipIndicator total={7} current={3} />
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>

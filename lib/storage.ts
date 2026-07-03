@@ -98,6 +98,12 @@ export function setOnboardingComplete(): void {
   );
 }
 
+// Bump this whenever the onboarding screen sequence changes. Saved progress from
+// a different flow version means the stored screen index refers to a screen that
+// no longer exists (or now means something else), so it's discarded on resume
+// rather than silently dropping the user into the middle of the new flow.
+export const ONBOARDING_FLOW_VERSION = 2;
+
 // Returns -1 if no progress saved.
 export function getOnboardingLastScreen(): number {
   const raw = memCache['onboarding.lastCompletedScreen'];
@@ -106,8 +112,17 @@ export function getOnboardingLastScreen(): number {
   return isNaN(n) ? -1 : n;
 }
 
+export function getOnboardingFlowVersion(): number {
+  const raw = memCache['onboarding.flowVersion'];
+  if (!raw) return 0;
+  const n = parseInt(raw, 10);
+  return isNaN(n) ? 0 : n;
+}
+
 export function setOnboardingLastScreen(screen: number): void {
   storage.set('onboarding.lastCompletedScreen', String(screen));
+  // Stamp the flow version with every save so partial progress is self-describing.
+  storage.set('onboarding.flowVersion', String(ONBOARDING_FLOW_VERSION));
 }
 
 // ─── User ────────────────────────────────────────────────────────────────────

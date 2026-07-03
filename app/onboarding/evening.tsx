@@ -50,8 +50,8 @@ export default function EveningScreen() {
     if (userLabel.trim()) {
       storage.set('onboarding.eveningUserLabel', userLabel.trim());
     }
-    setOnboardingLastScreen(7);
-    router.push('/onboarding/custom-habit');
+    setOnboardingLastScreen(4);
+    router.push('/onboarding/notifications');
   }
 
   return (
@@ -61,7 +61,7 @@ export default function EveningScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PipIndicator total={13} current={7} />
+        <PipIndicator total={7} current={4} />
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
