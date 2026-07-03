@@ -9,20 +9,39 @@ const DIST = path.join(__dirname, '..', 'dist');
 const ASSETS = path.join(__dirname, '..', 'assets');
 const WEB = path.join(__dirname, '..', 'web');
 
-const PWA_HEAD = [
-  '<meta name="theme-color" content="#0c0c0c" />',
+// Expo's static rendering already emits some of these (theme-color, manifest
+// link) with data-rh attributes. We only inject what's missing, and — most
+// importantly — always inject the service-worker registration, which Expo
+// never emits and which web push depends on entirely.
+const PWA_META = [
   '<meta name="apple-mobile-web-app-capable" content="yes" />',
   '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />',
   '<meta name="apple-mobile-web-app-title" content="Pulsare" />',
   '<link rel="apple-touch-icon" href="/pwa-icon-192.png" />',
-  '<link rel="manifest" href="/manifest.json" />',
-  '<script>if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js"));</script>',
-].join('\n    ');
+];
+
+const SW_REGISTER =
+  '<script>if("serviceWorker"in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")});</script>';
 
 function injectIntoHtml(filePath) {
   const html = fs.readFileSync(filePath, 'utf8');
-  if (html.includes('rel="manifest"')) return; // already injected
-  const updated = html.replace('</head>', `    ${PWA_HEAD}\n  </head>`);
+  const additions = [];
+
+  // Only add meta/link tags Expo hasn't already rendered.
+  for (const tag of PWA_META) {
+    const marker = tag.match(/(?:name|rel)="([^"]+)"/)[1];
+    if (!html.includes(`"${marker}"`)) additions.push(tag);
+  }
+  if (!html.includes('rel="manifest"')) {
+    additions.push('<link rel="manifest" href="/manifest.json" />');
+  }
+  // Always ensure the service worker registers (idempotent on re-run).
+  if (!html.includes('serviceWorker.register')) {
+    additions.push(SW_REGISTER);
+  }
+
+  if (additions.length === 0) return;
+  const updated = html.replace('</head>', `    ${additions.join('\n    ')}\n  </head>`);
   fs.writeFileSync(filePath, updated);
 }
 
