@@ -32,7 +32,7 @@ import {
   getRangeStats, recalculateStreak, isFallOff, isMissedOneDayOnly, getPresentDaysCount,
 } from '@/lib/presence';
 import { getStreakData } from '@/lib/storage';
-import { scheduleNeverMissTwiceNudge, scheduleCustomHabitNotification, cancelCustomHabitNotification } from '@/lib/notifications';
+import { scheduleNeverMissTwiceNudge, scheduleCustomHabitNotification, cancelCustomHabitNotification, syncPush } from '@/lib/notifications';
 import { daysSinceStart } from '@/lib/dayBoundary';
 import { getDevPhaseOverride } from '@/lib/devMode';
 import type { Habit, DayStats, Phase } from '@/types';
@@ -214,6 +214,10 @@ export default function HomeScreen() {
     const user = getUser();
     if (user && isMissedOneDayOnly()) {
       scheduleNeverMissTwiceNudge(user);
+    }
+    // Web: refresh the push subscription's times + lastPresentDay (once per session)
+    if (user) {
+      syncPush(user).catch(() => {});
     }
   }, []);
 

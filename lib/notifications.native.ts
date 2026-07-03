@@ -17,6 +17,18 @@ export async function requestPermissions(): Promise<boolean> {
   return status === 'granted';
 }
 
+export type PushStatus = 'unsupported' | 'default' | 'granted' | 'denied' | 'native';
+
+// Web-parity exports: native notifications are local, so there is no push
+// state to report or sync.
+export function getPushStatus(): PushStatus {
+  return 'native';
+}
+
+export async function syncPush(_user: User): Promise<void> {}
+
+export async function disablePush(): Promise<void> {}
+
 function parseTime(hhmm: string): { hour: number; minute: number } {
   const [hour, minute] = hhmm.split(':').map(Number);
   return { hour, minute };

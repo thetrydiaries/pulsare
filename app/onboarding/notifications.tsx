@@ -57,7 +57,7 @@ export default function NotificationsScreen() {
 
           {Platform.OS === 'web' && (
             <Text variant="label" color={Colors.textTertiary} style={styles.micro}>
-              one honest note: reminders don't arrive on the web version yet. until they do, a phone alarm at your wake time carries the anchor.
+              on iphone, reminders need pulsare installed on your home screen. you'll be asked to allow notifications at the end.
             </Text>
           )}
         </View>

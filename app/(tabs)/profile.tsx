@@ -24,7 +24,12 @@ import {
   exportAllData,
   importAllData,
 } from '@/lib/storage';
-import { scheduleAllNotifications } from '@/lib/notifications';
+import {
+  scheduleAllNotifications,
+  requestPermissions,
+  getPushStatus,
+  type PushStatus,
+} from '@/lib/notifications';
 import { recalculateStreak } from '@/lib/presence';
 import { getLogicalDate } from '@/lib/dayBoundary';
 import { getDevPhaseOverride, setDevPhaseOverride } from '@/lib/devMode';
@@ -42,6 +47,7 @@ export default function ProfileScreen() {
   const [user, setUserState] = useState<User | null>(null);
   const [customHabits, setCustomHabits] = useState<Habit[]>([]);
   const [editingEvening, setEditingEvening] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushStatus>(() => getPushStatus());
 
   // Dev mode state
   const [devMode, setDevModeState] = useState(false);
@@ -167,6 +173,17 @@ export default function ProfileScreen() {
   async function confirmReset() {
     await clearAllData();
     router.replace('/onboarding/welcome');
+  }
+
+  // ─── Web push ─────────────────────────────────────────────────────────────
+
+  async function handleEnablePush() {
+    if (!user) return;
+    const granted = await requestPermissions();
+    if (granted) {
+      await scheduleAllNotifications(user);
+    }
+    setPushStatus(getPushStatus());
   }
 
   // ─── Backup: export / restore ─────────────────────────────────────────────
@@ -330,9 +347,36 @@ export default function ProfileScreen() {
             <>
               <Divider />
               <View style={styles.webNotifNote}>
-                <Text variant="label" color={Colors.textTertiary} style={styles.webNotifNoteText}>
-                  reminders don't arrive on the web version yet — they're coming. a phone alarm at your wake time carries the anchor for now.
-                </Text>
+                {pushStatus === 'granted' && (
+                  <Text variant="label" color={Colors.textTertiary} style={styles.webNotifNoteText}>
+                    reminders are on. they arrive even when the app is closed.
+                  </Text>
+                )}
+                {pushStatus === 'default' && (
+                  <TouchableOpacity
+                    onPress={handleEnablePush}
+                    accessibilityRole="button"
+                    accessibilityLabel="turn on reminders"
+                    style={styles.enablePushBtn}
+                  >
+                    <Text variant="bodySemibold" color={Colors.tealText} size={14}>
+                      turn on reminders
+                    </Text>
+                    <Text variant="label" color={Colors.textTertiary} style={styles.webNotifNoteText}>
+                      three quiet anchors a day, even when the app is closed
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {pushStatus === 'denied' && (
+                  <Text variant="label" color={Colors.textTertiary} style={styles.webNotifNoteText}>
+                    notifications are blocked for pulsare. you can allow them again in your phone's settings.
+                  </Text>
+                )}
+                {pushStatus === 'unsupported' && (
+                  <Text variant="label" color={Colors.textTertiary} style={styles.webNotifNoteText}>
+                    reminders need the installed app — add pulsare to your home screen first.
+                  </Text>
+                )}
               </View>
             </>
           )}
@@ -456,7 +500,7 @@ export default function ProfileScreen() {
         <Section title="">
           <View style={styles.finePrint}>
             <Text variant="label" style={styles.finePrintText}>
-              this app does not collect your data. everything lives on your device.
+              your habits and reflections live on your device. if reminders are on, we store only a push address, your reminder times, and your last active day.
             </Text>
             <TouchableOpacity
               onPress={handleVersionTap}
@@ -628,6 +672,7 @@ const styles = StyleSheet.create({
   dataHint: { lineHeight: 16 },
   webNotifNote: { paddingVertical: 12, paddingHorizontal: 16 },
   webNotifNoteText: { lineHeight: 18 },
+  enablePushBtn: { gap: 4, minHeight: 44, justifyContent: 'center' },
   // Fine print
   finePrint: { padding: 16, gap: 8 },
   finePrintText: { lineHeight: 18 },
