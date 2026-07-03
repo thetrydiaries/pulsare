@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-07-03 — Review fixes: date bugs, accumulate-only stats, backup, web push, API key moved server-side
+
+Acted on the experience review + June pre-launch audit. Phases 1–2 of the plan.
+
+### Phase 1 — quick wins
+- **3am day-boundary bugs** — added `logicalToday()` and replaced every raw `new Date()` used for day identity (home header, both Sunday checks, week/month range builders, learn countdown, onboarding start date). Header and week strip no longer disagree about the day after midnight.
+- **Galaxy stats no longer punish** — replaced `presence rate` and `current streak` (both could reset/decrease) with `days present · this month · longest stretch`, all accumulate-only. Removes the shame loop on the marquee screen after a miss.
+- **Backup export/restore** — `exportAllData`/`importAllData` in `storage.ts`; profile → "your data" (web: JSON download + file-picker restore with validation and rollback-on-failure; native: Share). First defence against the lost-galaxy data-loss risk.
+- **Honest web copy** — onboarding + profile now tell web users how reminders work instead of promising ones that never arrived.
+
+### Phase 2 — web push + backend
+- **Web push notifications** — `api/push/subscribe.ts` + `api/push/tick.ts`; subscriptions in Upstash Redis, QStash pings the tick every 5 min, three daily anchors + never-miss-twice + comeback copy sent in each subscriber's timezone. `lib/notifications.web.ts` rewritten from no-op stubs to a real implementation. Verified live on Shirley's phone.
+- **Claude API key was exposed** — `EXPO_PUBLIC_ANTHROPIC_API_KEY` shipped in the public web bundle (revoked). Moved all Claude calls behind `api/generate-copy.ts` (server-side key, origin check, per-IP rate limit); prompts now live server-side. AI personalised copy generation works for the first time (it had silently failed on device).
+- **Service worker never registered in production** — `inject-pwa.js` skipped the SW registration script whenever a manifest link existed, and Expo always emits one. Fixed so registration always ships. This had silently disabled web push and the network-first offline cache since the SW was added.
+
+---
+
 ## 2026-06-09 — Bug fix: galaxy missing star for days logged before start date
 
 ### Bug fixes
