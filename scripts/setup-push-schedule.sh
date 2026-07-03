@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Creates the QStash schedule that pings /api/push/tick every 5 minutes.
-# Run once, from the repo root:
+# Already run once (2026-07-03); only needed again if the schedule is deleted.
 #
-#   vercel env pull .env.vercel --environment=production --yes
-#   QSTASH_TOKEN=<paste from console.upstash.com -> QStash> ./scripts/setup-push-schedule.sh
+#   QSTASH_TOKEN=<from a vercel env pull> PUSH_TICK_SECRET=<the secret> ./scripts/setup-push-schedule.sh
 #
-# The tick secret is read from the pulled env file; the QStash token is read
-# from the environment. Neither is ever printed.
+# Note: Vercel env vars marked "sensitive" (PUSH_TICK_SECRET is one) pull as
+# empty strings — pass PUSH_TICK_SECRET via the environment instead. Neither
+# value is ever printed.
 
 set -euo pipefail
 
@@ -17,11 +17,8 @@ if [ -z "${QSTASH_TOKEN:-}" ]; then
   exit 1
 fi
 
-if [ -f .env.vercel ]; then
-  PUSH_TICK_SECRET=$(grep '^PUSH_TICK_SECRET=' .env.vercel | cut -d= -f2- | tr -d '"')
-fi
 if [ -z "${PUSH_TICK_SECRET:-}" ]; then
-  echo "error: PUSH_TICK_SECRET not found. Run: vercel env pull .env.vercel --environment=production --yes" >&2
+  echo "error: set PUSH_TICK_SECRET (sensitive vars pull as empty — pass it via the environment)" >&2
   exit 1
 fi
 
