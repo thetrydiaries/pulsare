@@ -23,6 +23,11 @@ import {
   getLongestStretch,
   getEffectiveDates,
 } from '@/lib/presence';
+import {
+  getGalaxyMilestoneLevel,
+  getUnshownMilestone,
+  markMilestoneShown,
+} from '@/lib/progression';
 import type { DayStats, Habit, StarState } from '@/types';
 
 type TabView = 'week' | 'month' | 'galaxy' | 'anchors';
@@ -59,11 +64,32 @@ const GALAXY_CONCEPTS: GalaxyConcept[] = [
     title: 'neuroplasticity',
     definition: 'every time you repeat a behaviour, the neural pathway for it becomes slightly more efficient — what you\'ve been doing for three weeks is literally restructuring your brain.',
   },
+  {
+    title: 'consolidation',
+    definition: 'past three weeks, the wiring starts to hold on its own — the behaviour needs less willpower to run because the pathway is becoming the default.',
+  },
+  {
+    title: 'identity-based habits',
+    definition: 'the strongest habits aren\'t things you do, they\'re things you are. a month in, this stops being a protocol you follow and starts being someone you\'re becoming.',
+  },
+  {
+    title: 'why a lapse doesn\'t erase this',
+    definition: 'a missed day doesn\'t delete the pathway — it just goes quiet. the wiring is still there, which is why coming back is always faster than starting.',
+  },
 ];
 
 function getWeekNumber(startDate: string): number {
   return Math.max(1, Math.ceil(daysSinceStart(startDate) / 7));
 }
+
+// One-time milestone acknowledgements — the persistent visual deepening does the
+// real work; this is just the quiet note that it happened.
+const MILESTONE_COPY: Record<string, { title: string; body: string }> = {
+  m7: { title: 'one week present', body: 'seven days in the sky. your galaxy has its first real weight now.' },
+  m14: { title: 'two weeks present', body: 'the field around your stars is deepening — you can see the pull now.' },
+  m21: { title: 'three weeks present', body: 'past the point most people stop. the wiring is holding on its own.' },
+  m30: { title: 'a month present', body: 'thirty days. this isn\'t a streak anymore — it\'s a place you live.' },
+};
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -157,6 +183,8 @@ export default function GalaxyScreen() {
   const [editDate, setEditDate] = useState<string | null>(null);
   const [anchorHabits, setAnchorHabits] = useState<Habit[]>([]);
   const [lifetimeCounts, setLifetimeCounts] = useState<Record<string, number>>({});
+  const [milestoneLevel, setMilestoneLevel] = useState(0);
+  const [milestone, setMilestone] = useState<{ key: string; days: number; level: number } | null>(null);
 
   const insets = useSafeAreaInsets();
   const canvasPaddingH = insets.left + 20;
@@ -175,9 +203,12 @@ export default function GalaxyScreen() {
       map[d] = getDayStats(d);
     }
     setStats(map);
-    setPresentDays(getPresentDaysCount(user.startDate));
+    const present = getPresentDaysCount(user.startDate);
+    setPresentDays(present);
     setMonthDays(getPresentDaysThisMonth(user.startDate));
     setLongestStretch(getLongestStretch(user.startDate));
+    setMilestoneLevel(getGalaxyMilestoneLevel(present));
+    setMilestone(getUnshownMilestone(present));
 
     const habits = sortHabitsForAnchors(getActiveHabits(user.currentPhase));
     setAnchorHabits(habits);
@@ -215,6 +246,28 @@ export default function GalaxyScreen() {
             the cosmic web and a neural network look identical under a microscope. you're building both.
           </Text>
         </View>
+
+        {/* Milestone acknowledgement — one-time, dismissible */}
+        {milestone && MILESTONE_COPY[milestone.key] && (
+          <View style={[styles.milestoneCard, { marginHorizontal: 24 }]}>
+            <Text variant="serif" size={18} style={styles.milestoneTitle}>
+              {MILESTONE_COPY[milestone.key].title}
+            </Text>
+            <Text variant="label" color={Colors.textSecondary} style={styles.milestoneBody}>
+              {MILESTONE_COPY[milestone.key].body}
+            </Text>
+            <TouchableOpacity
+              onPress={() => { markMilestoneShown(milestone.key); setMilestone(null); }}
+              accessibilityRole="button"
+              accessibilityLabel="acknowledge milestone"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text variant="label" color={Colors.tealText} style={styles.milestoneAck}>
+                keep going →
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Stats row — above tabs for permanent visibility */}
         <View style={[styles.statsRow, { paddingHorizontal: canvasPaddingH }]}>
@@ -351,6 +404,7 @@ export default function GalaxyScreen() {
               today={today}
               canvasWidth={canvasWidth}
               onPressStar={(date) => setEditDate(date)}
+              milestoneLevel={milestoneLevel}
             />
           </View>
         )}
@@ -606,6 +660,20 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     textAlign: 'center',
   },
+
+  // Milestone card
+  milestoneCard: {
+    marginTop: 16,
+    padding: 18,
+    borderWidth: 0.5,
+    borderColor: Colors.tealAction,
+    borderRadius: 14,
+    backgroundColor: `${Colors.tealAction}10`,
+    gap: 8,
+  },
+  milestoneTitle: { lineHeight: 24 },
+  milestoneBody: { lineHeight: 20 },
+  milestoneAck: { marginTop: 2 },
 
   // Concept card
   conceptCard: {

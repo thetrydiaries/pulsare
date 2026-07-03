@@ -71,6 +71,21 @@ export interface PersonalisedCopy {
   shownMilestones?: string[];
 }
 
+export interface PhaseUnlockRecord {
+  // 'pending' = user tapped "not yet"; 'active' = accepted and phase advanced
+  state: 'pending' | 'active';
+  offeredAt?: string; // YYYY-MM-DD — last time the unlock was offered (re-offer cooldown)
+  acceptedAt?: string; // YYYY-MM-DD — when accepted
+}
+
+export interface ProgressionState {
+  phase2?: PhaseUnlockRecord;
+  phase3?: PhaseUnlockRecord;
+  lastUnlockAt?: string; // YYYY-MM-DD of the most recent accepted unlock (min-gap pacing)
+  shownGalaxyMilestones?: string[]; // e.g. ['m7', 'm14', 'm21', 'm30']
+  shownBeats?: string[]; // one-off narrative beats already shown, e.g. ['projectTease']
+}
+
 export interface HabitLogEntry {
   habits: Record<string, boolean>;
   bodyCheckWord: string | null;

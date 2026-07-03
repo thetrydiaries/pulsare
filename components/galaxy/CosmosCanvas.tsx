@@ -11,7 +11,20 @@ interface Props {
   today: string;
   canvasWidth: number;
   onPressStar: (date: string) => void;
+  // 0–4. Permanent deepening earned at 7/14/21/30 present days — the galaxy
+  // keeps gaining depth instead of plateauing. Never decreases.
+  milestoneLevel?: number;
 }
+
+// Field-glow opacity per milestone level. Stays inside the wide-glow band
+// (0.04–0.07) so it reads as depth, never a solid shape.
+const FIELD_OPACITY: Record<number, number> = {
+  0: 0,
+  1: 0.04,
+  2: 0.05,
+  3: 0.06,
+  4: 0.07,
+};
 
 const MARGIN = 28;
 const SPIRAL_SPACING = 25; // px between spiral rings
@@ -221,7 +234,7 @@ const TODAY_RING = 34;
 
 const PRESENT_STATES = new Set<StarState>(['full', 'partial', 'return']);
 
-export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPressStar }: Props) {
+export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPressStar, milestoneLevel = 0 }: Props) {
   const canvasHeight = useMemo(
     () => computeCanvasHeight(dates.length),
     [dates.length],
@@ -243,6 +256,9 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
     };
   }, [dates, positions, stats]);
 
+  const fieldOpacity = FIELD_OPACITY[Math.max(0, Math.min(4, Math.round(milestoneLevel)))] ?? 0;
+  const fieldRadius = Math.min(canvasWidth, canvasHeight) * 0.55;
+
   const tierOpacities = useMemo(() =>
     Array.from({ length: GLOW_TIERS }, (_, tier) => {
       const t = tier / (GLOW_TIERS - 1);
@@ -262,6 +278,12 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
         pointerEvents="none"
       >
         <Defs>
+          <RadialGradient id="field" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%"   stopColor={Colors.textPrimary} stopOpacity={fieldOpacity} />
+            <Stop offset="55%"  stopColor={Colors.textPrimary} stopOpacity={fieldOpacity * 0.4} />
+            <Stop offset="100%" stopColor={Colors.textPrimary} stopOpacity={0} />
+          </RadialGradient>
+
           <RadialGradient id="nebula" cx="50%" cy="50%" r="50%">
             <Stop offset="0%"   stopColor={Colors.textPrimary} stopOpacity={0.055} />
             <Stop offset="50%"  stopColor={Colors.textPrimary} stopOpacity={0.022} />
@@ -298,6 +320,10 @@ export default function CosmosCanvas({ dates, stats, today, canvasWidth, onPress
             </React.Fragment>
           ))}
         </Defs>
+
+        {fieldOpacity > 0 && (
+          <Circle cx={canvasWidth / 2} cy={canvasHeight / 2} r={fieldRadius} fill="url(#field)" />
+        )}
 
         {nebulaClouds.map((nc, i) => (
           <Circle key={`nc${i}`} cx={nc.x} cy={nc.y} r={nc.radius} fill="url(#nebula)" />

@@ -6,6 +6,7 @@ import type {
   StreakData,
   WeeklyReflection,
   PersonalisedCopy,
+  ProgressionState,
 } from '@/types';
 
 // ─── In-memory cache (keeps the synchronous API intact) ─────────────────────
@@ -212,6 +213,20 @@ export function getPersonalisedCopy(): PersonalisedCopy | null {
 
 export function setPersonalisedCopy(copy: PersonalisedCopy): void {
   set('personalisedCopy', copy);
+}
+
+// ─── Progression state (phase unlocks, milestones, narrative beats) ──────────
+
+export function getProgressionState(): ProgressionState {
+  return get<ProgressionState>('progressionState') ?? {};
+}
+
+export function setProgressionState(state: ProgressionState): void {
+  set('progressionState', state);
+}
+
+export function updateProgressionState(partial: Partial<ProgressionState>): void {
+  setProgressionState({ ...getProgressionState(), ...partial });
 }
 
 // ─── Backup: export / import ─────────────────────────────────────────────────

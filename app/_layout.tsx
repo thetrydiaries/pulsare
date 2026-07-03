@@ -66,6 +66,7 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="falloff" options={{ animation: 'fade' }} />
+                <Stack.Screen name="unlock" options={{ animation: 'fade' }} />
                 <Stack.Screen name="reflection" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
               </Stack>
             </>

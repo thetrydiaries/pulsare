@@ -19,10 +19,12 @@ import CustomHabitSheet from '@/components/CustomHabitSheet';
 import PastDayEditSheet from '@/components/PastDayEditSheet';
 import BreathworkGuide from '@/components/BreathworkGuide';
 import type { TechniqueKey } from '@/components/BreathworkGuide';
+import ProjectTeaseCard from '@/components/ProjectTeaseCard';
 import {
   getUser, getLogEntry, updateLogEntry, getPersonalisedCopy,
-  getHabits, upsertHabit, setPersonalisedCopy,
+  getHabits, upsertHabit, setPersonalisedCopy, updateUser,
 } from '@/lib/storage';
+import { getPendingUnlock, getProjectTease, markBeatShown } from '@/lib/progression';
 import { getActiveHabits, addCustomHabit, editCustomHabit } from '@/lib/habits';
 import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
 import {
@@ -162,6 +164,7 @@ export default function HomeScreen() {
   const [guideVisible, setGuideVisible] = useState(false);
   const [guideTechnique, setGuideTechnique] = useState<TechniqueKey>('physiological-sigh');
   const [breathworkHabitId, setBreathworkHabitId] = useState<string | null>(null);
+  const [projectTease, setProjectTease] = useState<{ projectName: string | null } | null>(null);
   const appState = useRef(AppState.currentState);
 
   const load = useCallback(() => {
@@ -175,6 +178,18 @@ export default function HomeScreen() {
       router.replace('/falloff');
       return;
     }
+
+    // A phase unlock is due — hand off to the full-screen unlock moment.
+    // (If she were mid-lapse the falloff redirect above would have run first,
+    // so the unlock naturally waits and fires on her return day instead.)
+    const pendingPhase = getPendingUnlock();
+    if (pendingPhase) {
+      router.replace({ pathname: '/unlock', params: { phase: String(pendingPhase) } });
+      return;
+    }
+
+    setProjectTease(getProjectTease());
+
     const currentWeekDates = getWeekDates();
 
     const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
@@ -250,6 +265,17 @@ export default function HomeScreen() {
   function handleBodyWord(text: string) {
     setBodyWord(text);
     updateLogEntry(getLogicalDate(), { bodyCheckWord: text || null });
+  }
+
+  function handleNameProject(name: string) {
+    updateUser({ projectName: name });
+    markBeatShown('projectTease');
+    setProjectTease(null);
+  }
+
+  function handleDismissTease() {
+    markBeatShown('projectTease');
+    setProjectTease(null);
   }
 
   function handleRemoveHabit(habitId: string) {
@@ -411,6 +437,15 @@ export default function HomeScreen() {
           />
         )}
 
+        {/* Week-3 project tease */}
+        {projectTease && (
+          <ProjectTeaseCard
+            projectName={projectTease.projectName}
+            onName={handleNameProject}
+            onDismiss={handleDismissTease}
+          />
+        )}
+
         {/* Sunday reflection prompt */}
         {isSunday && (
           <TouchableOpacity
@@ -487,6 +522,7 @@ export default function HomeScreen() {
         onClose={() => setPhaseModalVisible(false)}
         currentPhase={effectivePhase}
         habits={habits}
+        onHabitsChanged={load}
       />
 
       <CustomHabitSheet

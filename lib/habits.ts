@@ -116,6 +116,80 @@ export function initPhase1Habits(user: User): void {
   setHabits(habits);
 }
 
+// ─── Phase 2 / 3 catalog (unlocked progressively, not at onboarding) ─────────
+// Each candidate stacks onto an existing anchor — adopting one at a time is how
+// habits actually form, so the unlock screen offers these as a choice, never a dump.
+
+export interface PhaseCandidate {
+  suggestedId: string;
+  label: string;
+  group: HabitGroup;
+  phase: Phase;
+  stackIntro: string; // shown at the moment of adoption — anchors the new habit to an old one
+  headline?: boolean; // the defining habit of the phase (pre-selected on the unlock screen)
+}
+
+const PHASE_CATALOG: PhaseCandidate[] = [
+  // Phase 2 · build
+  { suggestedId: 'consistent-bedtime', label: 'consistent bedtime', group: 'evening', phase: 2, stackIntro: 'stacks onto your evening anchor', headline: true },
+  { suggestedId: 'breakfast', label: 'breakfast within 90 min', group: 'morning', phase: 2, stackIntro: 'stacks onto morning light' },
+  { suggestedId: 'morning-pages', label: 'morning pages', group: 'morning', phase: 2, stackIntro: 'stacks onto water before coffee' },
+  { suggestedId: 'phone-off-reading', label: 'phone-off reading', group: 'evening', phase: 2, stackIntro: 'stacks onto your evening wind-down' },
+  // Phase 3 · raise the stakes
+  { suggestedId: 'project-hour', label: 'project hour', group: 'morning', phase: 3, stackIntro: 'the first two minutes are the whole habit', headline: true },
+  { suggestedId: 'protected-sleep', label: 'protected sleep', group: 'evening', phase: 3, stackIntro: 'your bedtime becomes a tracked anchor' },
+  { suggestedId: 'diet-anchor', label: 'diet anchor', group: 'morning', phase: 3, stackIntro: 'one approach, not a diet — infrastructure' },
+];
+
+/** Candidate label resolved against user data (project hour shows the project name). */
+function resolveCandidateLabel(c: PhaseCandidate, user: User): string {
+  if (c.suggestedId === 'project-hour' && user.projectName?.trim()) {
+    return user.projectName.trim();
+  }
+  return c.label;
+}
+
+/** Returns the phase's candidates, each flagged with whether it's already active. */
+export function getPhaseCandidates(phase: Phase, user: User): (PhaseCandidate & { label: string; alreadyActive: boolean })[] {
+  const active = new Set(
+    Object.values(getHabits())
+      .filter((h) => h.active && h.suggestedId)
+      .map((h) => h.suggestedId as string),
+  );
+  return PHASE_CATALOG.filter((c) => c.phase === phase).map((c) => ({
+    ...c,
+    label: resolveCandidateLabel(c, user),
+    alreadyActive: active.has(c.suggestedId),
+  }));
+}
+
+/**
+ * Instantiate one catalog habit. Idempotent: if a habit with the same
+ * suggestedId already exists, it's reactivated rather than duplicated.
+ * Returns the habit, or null if the suggestedId isn't in the catalog.
+ */
+export function instantiatePhaseHabit(suggestedId: string, user: User): Habit | null {
+  const candidate = PHASE_CATALOG.find((c) => c.suggestedId === suggestedId);
+  if (!candidate) return null;
+
+  const habits = getHabits();
+  const existing = Object.values(habits).find((h) => h.suggestedId === suggestedId);
+  if (existing) {
+    if (!existing.active) upsertHabit({ ...existing, active: true });
+    return habits[existing.id];
+  }
+
+  const habit = makeHabit(
+    candidate.suggestedId,
+    resolveCandidateLabel(candidate, user),
+    candidate.phase,
+    candidate.group,
+    false,
+  );
+  upsertHabit(habit);
+  return habit;
+}
+
 // ─── Presence threshold ──────────────────────────────────────────────────────
 
 export function getPresenceThreshold(activeHabitCount: number): number {

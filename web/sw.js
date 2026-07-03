@@ -1,4 +1,4 @@
-const CACHE = 'pulsare-v3';
+const CACHE = 'pulsare-v4';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
