@@ -25,7 +25,7 @@ import {
   getHabits, upsertHabit, setPersonalisedCopy, updateUser,
 } from '@/lib/storage';
 import { getPendingUnlock, getProjectTease, markBeatShown } from '@/lib/progression';
-import { getActiveHabits, addCustomHabit, editCustomHabit } from '@/lib/habits';
+import { getActiveHabits, addCustomHabit, editCustomHabit, getRevealedHabits, habitRevealDay } from '@/lib/habits';
 import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
 import {
   getLogicalDate, logicalToday, formatDate, timeIsAtOrAfter, currentTime, subtractHours,
@@ -165,6 +165,7 @@ export default function HomeScreen() {
   const [guideTechnique, setGuideTechnique] = useState<TechniqueKey>('physiological-sigh');
   const [breathworkHabitId, setBreathworkHabitId] = useState<string | null>(null);
   const [projectTease, setProjectTease] = useState<{ projectName: string | null } | null>(null);
+  const [revealBeat, setRevealBeat] = useState<string | null>(null);
   const appState = useRef(AppState.currentState);
 
   const load = useCallback(() => {
@@ -193,8 +194,15 @@ export default function HomeScreen() {
     const currentWeekDates = getWeekDates();
 
     const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
-    const activeHabits = getActiveHabits(effectivePhase);
+    const dayNum = daysSinceStart(user.startDate);
+    const allActive = getActiveHabits(effectivePhase);
+    // Week-1 gradual reveal: only show habits whose reveal day has arrived.
+    const activeHabits = getRevealedHabits(allActive, dayNum);
     setHabits(activeHabits);
+
+    // A phase-1 anchor that becomes visible today gets a gentle "joins your anchors" beat.
+    const revealedToday = dayNum > 1 ? allActive.find((h) => habitRevealDay(h) === dayNum) : undefined;
+    setRevealBeat(revealedToday ? (revealedToday.userLabel ?? revealedToday.label) : null);
 
     // Find breathwork habit for guide affordance
     const breathHabit = activeHabits.find((h) => h.suggestedId === 'nervous-system-reset');
@@ -459,6 +467,18 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Week-1 reveal beat */}
+        {revealBeat && (
+          <View style={styles.revealBeat}>
+            <Text variant="label" color={Colors.tealText} style={styles.revealBeatText}>
+              {revealBeat} joins your anchors today.
+            </Text>
+            <Text variant="label" color={Colors.textTertiary} style={styles.revealBeatSub}>
+              one more, now that the first ones are holding.
+            </Text>
+          </View>
+        )}
+
         {/* Morning habits */}
         <View style={styles.group}>
           <Text variant="label" style={styles.groupLabel}>morning</Text>
@@ -642,6 +662,21 @@ const styles = StyleSheet.create({
   },
   reflectionSub: {
     fontSize: 11,
+  },
+  revealBeat: {
+    marginTop: 16,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.tealAction,
+    gap: 3,
+  },
+  revealBeatText: {
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
+  revealBeatSub: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   sleepNote: {
     marginTop: 24,

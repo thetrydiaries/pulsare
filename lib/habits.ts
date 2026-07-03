@@ -190,6 +190,32 @@ export function instantiatePhaseHabit(suggestedId: string, user: User): Habit | 
   return habit;
 }
 
+// ─── Week-1 gradual reveal ───────────────────────────────────────────────────
+// All phase-1 habits exist from day 1 (so presence/stats are never retroactively
+// affected), but the home screen only *shows* them as the first week unfolds —
+// three circadian anchors on day 1, the rest joining over the week. This is a
+// display concern only; nothing here touches logging or presence math.
+
+const REVEAL_DAY: Record<string, number> = {
+  'wake-anchor': 1,
+  'morning-light': 1,
+  'water-before-coffee': 1,
+  'evening-anchor': 2,
+  'morning-movement': 4,
+  'nervous-system-reset': 6,
+};
+
+/** The day (since start) a habit becomes visible on home. Custom/phase-2+ habits show immediately. */
+export function habitRevealDay(habit: Habit): number {
+  if (!habit.suggestedId) return 1;
+  return REVEAL_DAY[habit.suggestedId] ?? 1;
+}
+
+/** Filter a habit list down to what should be visible on `dayNumber` (daysSinceStart). */
+export function getRevealedHabits(habits: Habit[], dayNumber: number): Habit[] {
+  return habits.filter((h) => dayNumber >= habitRevealDay(h));
+}
+
 // ─── Presence threshold ──────────────────────────────────────────────────────
 
 export function getPresenceThreshold(activeHabitCount: number): number {

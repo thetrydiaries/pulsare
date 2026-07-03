@@ -6,11 +6,9 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import { getLogicalDate } from '@/lib/dayBoundary';
 import { updateLogEntry } from '@/lib/storage';
-import { recalculateStreak, getConsecutiveMissedDays } from '@/lib/presence';
+import { recalculateStreak } from '@/lib/presence';
 
 export default function FalloffScreen() {
-  const missedDays = getConsecutiveMissedDays();
-
   function handleBack() {
     const today = getLogicalDate();
     updateLogEntry(today, { isReturnDay: true });
@@ -22,10 +20,9 @@ export default function FalloffScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         <View style={styles.content}>
-          <Text variant="serifItalic" size={72} style={styles.word}>back.</Text>
-          <Text variant="label" style={styles.sub}>the door was always open</Text>
-          <Text variant="label" color={Colors.textTertiary} style={styles.missedCount}>
-            {missedDays === 1 ? 'you were away for 1 day.' : `you were away for ${missedDays} days.`}
+          <Text variant="serifItalic" size={72} style={styles.word}>you're back.</Text>
+          <Text variant="label" style={styles.sub}>
+            however long it's been, it doesn't undo what you built.
           </Text>
         </View>
 
@@ -33,11 +30,11 @@ export default function FalloffScreen() {
           style={styles.button}
           onPress={handleBack}
           accessibilityRole="button"
-          accessibilityLabel="I'm back — return to today"
+          accessibilityLabel="pick it back up — return to today"
           activeOpacity={0.7}
         >
           <Text variant="bodySemibold" color={Colors.tealText} size={16}>
-            I'm back
+            pick it back up
           </Text>
         </TouchableOpacity>
       </View>
@@ -64,11 +61,6 @@ const styles = StyleSheet.create({
   sub: {
     fontSize: 14,
     lineHeight: 20,
-  },
-  missedCount: {
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 8,
   },
   button: {
     borderWidth: 1,

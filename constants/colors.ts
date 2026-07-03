@@ -5,7 +5,7 @@ export const Colors = {
 
   textPrimary: '#ede8e0',
   textSecondary: '#bab5ac',
-  textTertiary: '#6b6660', // #6b6660 on #0c0c0c = ~4.6:1, passes WCAG AA
+  textTertiary: '#8c857c', // warm grey on #0c0c0c ≈ 5.4:1 — comfortably above WCAG AA (was #6b6660, ~4.6:1)
 
   tealAction: '#3d6b58',
   tealText: '#8fb0a4',
