@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import { getReflection, setReflection, getLogEntry } from '@/lib/storage';
-import { formatDate } from '@/lib/dayBoundary';
+import { formatDate, logicalToday } from '@/lib/dayBoundary';
 
 const PHASE1_QUESTIONS = [
   'Did I show up more days than not?',
@@ -15,17 +15,17 @@ const PHASE1_QUESTIONS = [
 ];
 
 function getSundayKey(): string {
-  const d = new Date();
+  const d = logicalToday();
   while (d.getDay() !== 0) d.setDate(d.getDate() - 1);
   return formatDate(d);
 }
 
 function isSunday(): boolean {
-  return new Date().getDay() === 0;
+  return logicalToday().getDay() === 0;
 }
 
 function getWeekBodyWords(): string[] {
-  const today = new Date();
+  const today = logicalToday();
   const dow = (today.getDay() + 6) % 7;
   const monday = new Date(today);
   monday.setDate(today.getDate() - dow);
@@ -69,6 +69,12 @@ export default function ReflectionScreen() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyWords = getWeekBodyWords();
   const bodyWordPattern = getBodyWordPattern(bodyWords);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   function handleAnswer(i: number, text: string) {
     const next = [...answers];

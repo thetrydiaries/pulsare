@@ -6,7 +6,7 @@ import {
   getUser,
   getAllLogDates,
 } from './storage';
-import { getLogicalDate, dateRangeFromStart } from './dayBoundary';
+import { getLogicalDate, dateRangeFromStart, parseDate, formatDate } from './dayBoundary';
 import { isDayPresent } from './habits';
 import type { DayStats, Habit, StarState } from '@/types';
 
@@ -95,6 +95,58 @@ export function getPresenceRate(startDate: string): number {
   if (dates.length === 0) return 0;
   const present = getPresentDaysCount(startDate);
   return Math.round((present / dates.length) * 100);
+}
+
+// ─── Accumulate-only stats (never decrease, never reset) ─────────────────────
+
+/** Present days (full or return) within the current logical month. */
+export function getPresentDaysThisMonth(startDate: string): number {
+  const user = getUser();
+  const phase = user?.currentPhase ?? 1;
+  const activeHabits = getActiveHabitsForPhase(phase);
+  const today = getLogicalDate();
+  const monthPrefix = today.slice(0, 7);
+  return getEffectiveDates(startDate).filter((d) => {
+    if (!d.startsWith(monthPrefix)) return false;
+    const s = computeDayStats(d, today, activeHabits);
+    return s.state === 'full' || s.state === 'return';
+  }).length;
+}
+
+/**
+ * Longest run of consecutive present days (full or return) since start.
+ * Historical — it only ever grows, so a missed day never lowers it.
+ */
+export function getLongestStretch(startDate: string): number {
+  const user = getUser();
+  const phase = user?.currentPhase ?? 1;
+  const activeHabits = getActiveHabitsForPhase(phase);
+  const today = getLogicalDate();
+  const dates = getEffectiveDates(startDate);
+
+  let longest = 0;
+  let run = 0;
+  let prevPresent: string | null = null;
+  for (const d of dates) {
+    const s = computeDayStats(d, today, activeHabits);
+    const present = s.state === 'full' || s.state === 'return';
+    if (present) {
+      let contiguous = false;
+      if (prevPresent !== null) {
+        const next = parseDate(prevPresent);
+        next.setDate(next.getDate() + 1);
+        contiguous = formatDate(next) === d;
+      }
+      run = contiguous ? run + 1 : 1;
+      prevPresent = d;
+      if (run > longest) longest = run;
+    } else if (d < today) {
+      // A missed past day breaks the run; today-not-yet-logged doesn't.
+      run = 0;
+      prevPresent = null;
+    }
+  }
+  return longest;
 }
 
 // ─── Recalculate and persist streak ──────────────────────────────────────────

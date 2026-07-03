@@ -26,7 +26,7 @@ import {
 import { getActiveHabits, addCustomHabit, editCustomHabit } from '@/lib/habits';
 import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
 import {
-  getLogicalDate, formatDate, timeIsAtOrAfter, currentTime, subtractHours,
+  getLogicalDate, logicalToday, formatDate, timeIsAtOrAfter, currentTime, subtractHours,
 } from '@/lib/dayBoundary';
 import {
   getRangeStats, recalculateStreak, isFallOff, isMissedOneDayOnly, getPresentDaysCount,
@@ -120,7 +120,7 @@ function getCurrentTechnique(weekNum: number): TechniqueKey {
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function getWeekDates(): string[] {
-  const today = new Date();
+  const today = logicalToday();
   const dow = (today.getDay() + 6) % 7; // Mon=0
   const monday = new Date(today);
   monday.setDate(today.getDate() - dow);
@@ -199,7 +199,7 @@ export default function HomeScreen() {
     setIsEveningTime(timeIsAtOrAfter(currentTime(), windDown));
 
     setShowNudge(isMissedOneDayOnly());
-    setIsSunday(new Date().getDay() === 0);
+    setIsSunday(logicalToday().getDay() === 0);
 
     // Determine current breathwork technique
     const weekNum = getWeekNumber(user.startDate);
@@ -342,7 +342,7 @@ export default function HomeScreen() {
         {/* Status bar row */}
         <View style={styles.statusRow}>
           <Text variant="label">
-            {new Date().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
+            {logicalToday().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
           </Text>
           <View style={styles.statusRight}>
             <TouchableOpacity

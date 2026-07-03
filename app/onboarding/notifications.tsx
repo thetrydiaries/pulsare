@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -54,6 +54,12 @@ export default function NotificationsScreen() {
           <Text variant="label" style={styles.micro}>
             these aren't alarms. they're anchors. consistent timing trains your nervous system more than any single habit.
           </Text>
+
+          {Platform.OS === 'web' && (
+            <Text variant="label" color={Colors.textTertiary} style={styles.micro}>
+              one honest note: reminders don't arrive on the web version yet. until they do, a phone alarm at your wake time carries the anchor.
+            </Text>
+          )}
         </View>
 
         <Button label="next" onPress={handleNext} style={styles.button} />

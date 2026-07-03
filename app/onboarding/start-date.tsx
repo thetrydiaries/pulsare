@@ -7,15 +7,15 @@ import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import { storage, setOnboardingLastScreen } from '@/lib/storage';
-import { formatDate } from '@/lib/dayBoundary';
+import { formatDate, getLogicalDate, parseDate } from '@/lib/dayBoundary';
 
 export default function StartDateScreen() {
   const [choice, setChoice] = useState<'today' | 'later'>('today');
 
   // For v1, "pick a date" just advances to tomorrow — full calendar in Build Phase 2
-  const today = formatDate(new Date());
+  const today = getLogicalDate();
   const tomorrow = (() => {
-    const d = new Date();
+    const d = parseDate(today);
     d.setDate(d.getDate() + 1);
     return formatDate(d);
   })();

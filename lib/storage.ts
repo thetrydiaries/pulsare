@@ -214,6 +214,71 @@ export function setPersonalisedCopy(copy: PersonalisedCopy): void {
   set('personalisedCopy', copy);
 }
 
+// ─── Backup: export / import ─────────────────────────────────────────────────
+
+export interface BackupFile {
+  app: 'pulsare';
+  backupVersion: 1;
+  exportedAt: string;
+  data: Record<string, string>;
+}
+
+export function exportAllData(): string {
+  const backup: BackupFile = {
+    app: 'pulsare',
+    backupVersion: 1,
+    exportedAt: new Date().toISOString(),
+    data: { ...memCache },
+  };
+  return JSON.stringify(backup, null, 2);
+}
+
+/**
+ * Full restore: validates the backup, then replaces all stored data with it.
+ * Throws before touching anything if the file isn't a valid Pulsare backup.
+ */
+export async function importAllData(json: string): Promise<void> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error('not a valid backup file');
+  }
+  const backup = parsed as Partial<BackupFile>;
+  if (
+    backup?.app !== 'pulsare' ||
+    backup.backupVersion !== 1 ||
+    typeof backup.data !== 'object' ||
+    backup.data === null
+  ) {
+    throw new Error('not a valid pulsare backup');
+  }
+  const pairs: [string, string][] = [];
+  for (const [key, value] of Object.entries(backup.data)) {
+    if (typeof value === 'string') pairs.push([key, value]);
+  }
+  if (pairs.length === 0) {
+    throw new Error('backup file is empty');
+  }
+
+  const prior: [string, string][] = Object.entries(memCache);
+  await clearAllData();
+  try {
+    await AsyncStorage.multiSet(pairs);
+  } catch (e) {
+    // Restore failed mid-write — put the pre-import data back so a bad
+    // restore is never a data-loss event.
+    await AsyncStorage.multiSet(prior).catch(() => {});
+    for (const [key, value] of prior) {
+      memCache[key] = value;
+    }
+    throw new Error('restore failed. your existing data was kept.');
+  }
+  for (const [key, value] of pairs) {
+    memCache[key] = value;
+  }
+}
+
 // ─── Dev / testing ───────────────────────────────────────────────────────────
 
 export async function clearAllData(): Promise<void> {

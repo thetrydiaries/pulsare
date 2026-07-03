@@ -11,6 +11,7 @@ import { getUser, getAllLogDates, getLogEntry } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
 import {
   getLogicalDate,
+  logicalToday,
   formatDate,
   parseDate,
   daysSinceStart,
@@ -18,10 +19,10 @@ import {
 import {
   getDayStats,
   getPresentDaysCount,
-  getPresenceRate,
+  getPresentDaysThisMonth,
+  getLongestStretch,
   getEffectiveDates,
 } from '@/lib/presence';
-import { getStreakData } from '@/lib/storage';
 import type { DayStats, Habit, StarState } from '@/types';
 
 type TabView = 'week' | 'month' | 'galaxy' | 'anchors';
@@ -67,7 +68,7 @@ function getWeekNumber(startDate: string): number {
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function getWeekDates(): string[] {
-  const today = new Date();
+  const today = logicalToday();
   const dow = (today.getDay() + 6) % 7;
   const monday = new Date(today);
   monday.setDate(today.getDate() - dow);
@@ -80,7 +81,7 @@ function getWeekDates(): string[] {
 
 
 function getMonthDates(): string[] {
-  const today = new Date();
+  const today = logicalToday();
   const first = new Date(today.getFullYear(), today.getMonth(), 1);
   const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   const dates: string[] = [];
@@ -151,8 +152,8 @@ export default function GalaxyScreen() {
   const [tab, setTab] = useState<TabView>('week');
   const [stats, setStats] = useState<Record<string, DayStats>>({});
   const [presentDays, setPresentDays] = useState(0);
-  const [presenceRate, setPresenceRate] = useState(0);
-  const [streak, setStreak] = useState(0);
+  const [monthDays, setMonthDays] = useState(0);
+  const [longestStretch, setLongestStretch] = useState(0);
   const [editDate, setEditDate] = useState<string | null>(null);
   const [anchorHabits, setAnchorHabits] = useState<Habit[]>([]);
   const [lifetimeCounts, setLifetimeCounts] = useState<Record<string, number>>({});
@@ -175,8 +176,8 @@ export default function GalaxyScreen() {
     }
     setStats(map);
     setPresentDays(getPresentDaysCount(user.startDate));
-    setPresenceRate(getPresenceRate(user.startDate));
-    setStreak(getStreakData().currentStreak);
+    setMonthDays(getPresentDaysThisMonth(user.startDate));
+    setLongestStretch(getLongestStretch(user.startDate));
 
     const habits = sortHabitsForAnchors(getActiveHabits(user.currentPhase));
     setAnchorHabits(habits);
@@ -218,8 +219,8 @@ export default function GalaxyScreen() {
         {/* Stats row — above tabs for permanent visibility */}
         <View style={[styles.statsRow, { paddingHorizontal: canvasPaddingH }]}>
           <StatBlock value={presentDays} label="days present" />
-          <StatBlock value={`${presenceRate}%`} label="presence rate" />
-          <StatBlock value={streak} label="current streak" />
+          <StatBlock value={monthDays} label="this month" />
+          <StatBlock value={longestStretch} label="longest stretch" />
         </View>
 
         {/* Tabs */}

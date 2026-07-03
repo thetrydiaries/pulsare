@@ -41,6 +41,15 @@ export function parseDate(dateStr: string): Date {
   return new Date(y, m - 1, d);
 }
 
+/**
+ * The logical today as a local-midnight Date. Use this instead of `new Date()`
+ * whenever a Date is used for day identity (weekday, week/month ranges,
+ * headers) so the 3am boundary is respected everywhere.
+ */
+export function logicalToday(): Date {
+  return parseDate(getLogicalDate());
+}
+
 /** Number of calendar days elapsed since startDate (inclusive of today). */
 export function daysSinceStart(startDate: string): number {
   const start = parseDate(startDate);

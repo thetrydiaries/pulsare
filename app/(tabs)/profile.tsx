@@ -8,16 +8,25 @@ import {
   TextInput,
   Animated,
   Platform,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import TimePicker from '@/components/ui/TimePicker';
-import { getUser, updateUser, clearAllData, getHabits, upsertHabit } from '@/lib/storage';
+import {
+  getUser,
+  updateUser,
+  clearAllData,
+  getHabits,
+  upsertHabit,
+  exportAllData,
+  importAllData,
+} from '@/lib/storage';
 import { scheduleAllNotifications } from '@/lib/notifications';
 import { recalculateStreak } from '@/lib/presence';
-import { parseDate } from '@/lib/dayBoundary';
+import { getLogicalDate } from '@/lib/dayBoundary';
 import { getDevPhaseOverride, setDevPhaseOverride } from '@/lib/devMode';
 import type { User, Habit, Phase } from '@/types';
 import Constants from 'expo-constants';
@@ -138,7 +147,7 @@ export default function ProfileScreen() {
       Alert.alert('invalid date', 'enter a date in YYYY-MM-DD format');
       return;
     }
-    if (parseDate(trimmed) > new Date()) {
+    if (trimmed > getLogicalDate()) {
       Alert.alert('invalid date', 'start date cannot be in the future');
       return;
     }
@@ -158,6 +167,51 @@ export default function ProfileScreen() {
   async function confirmReset() {
     await clearAllData();
     router.replace('/onboarding/welcome');
+  }
+
+  // ─── Backup: export / restore ─────────────────────────────────────────────
+
+  async function handleExport() {
+    const json = exportAllData();
+    if (Platform.OS === 'web') {
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pulsare-backup-${getLogicalDate()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+    await Share.share({ message: json });
+  }
+
+  function handleRestore() {
+    if (Platform.OS !== 'web') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    // iOS Safari needs the input attached to the DOM to fire onchange
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      document.body.removeChild(input);
+      if (!file) return;
+      const text = await file.text();
+      if (!window.confirm('restore from this backup? it replaces everything currently in the app.')) {
+        return;
+      }
+      try {
+        await importAllData(text);
+        window.location.reload();
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : 'could not read that backup file');
+      }
+    };
+    input.click();
   }
 
   function handleDevReset() {
@@ -272,6 +326,16 @@ export default function ProfileScreen() {
               onChange={(v) => saveNotifTimes('windDown', v)}
             />
           </Row>
+          {Platform.OS === 'web' && (
+            <>
+              <Divider />
+              <View style={styles.webNotifNote}>
+                <Text variant="label" color={Colors.textTertiary} style={styles.webNotifNoteText}>
+                  reminders don't arrive on the web version yet — they're coming. a phone alarm at your wake time carries the anchor for now.
+                </Text>
+              </View>
+            </>
+          )}
         </Section>
 
         {/* Your reset */}
@@ -287,6 +351,37 @@ export default function ProfileScreen() {
               {phaseLabel}
             </Text>
           </Row>
+        </Section>
+
+        {/* Your data */}
+        <Section title="your data">
+          <TouchableOpacity
+            onPress={handleExport}
+            style={styles.dataBtn}
+            accessibilityRole="button"
+            accessibilityLabel="export a backup of all your data"
+          >
+            <Text variant="body" color={Colors.textSecondary} size={14}>export backup</Text>
+            <Text variant="label" color={Colors.textTertiary} style={styles.dataHint}>
+              your galaxy, habits, and reflections — saved as a file you keep
+            </Text>
+          </TouchableOpacity>
+          {Platform.OS === 'web' && (
+            <>
+              <Divider />
+              <TouchableOpacity
+                onPress={handleRestore}
+                style={styles.dataBtn}
+                accessibilityRole="button"
+                accessibilityLabel="restore from a backup file"
+              >
+                <Text variant="body" color={Colors.textSecondary} size={14}>restore from backup</Text>
+                <Text variant="label" color={Colors.textTertiary} style={styles.dataHint}>
+                  replaces everything here with a backup file
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </Section>
 
         {/* Dev tools — only when devMode is active */}
@@ -522,6 +617,17 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
+  // Your data
+  dataBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    justifyContent: 'center',
+    gap: 4,
+  },
+  dataHint: { lineHeight: 16 },
+  webNotifNote: { paddingVertical: 12, paddingHorizontal: 16 },
+  webNotifNoteText: { lineHeight: 18 },
   // Fine print
   finePrint: { padding: 16, gap: 8 },
   finePrintText: { lineHeight: 18 },

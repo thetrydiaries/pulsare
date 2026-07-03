@@ -14,7 +14,7 @@ import BreathworkGuide from '@/components/BreathworkGuide';
 import type { TechniqueKey } from '@/components/BreathworkGuide';
 import { getUser, getPersonalisedCopy, storage } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
-import { getLogicalDate, parseDate, daysSinceStart } from '@/lib/dayBoundary';
+import { getLogicalDate, logicalToday, parseDate, daysSinceStart } from '@/lib/dayBoundary';
 import type { Habit, User } from '@/types';
 
 // ─── Default habit learn content ─────────────────────────────────────────────
@@ -105,7 +105,7 @@ function getWeekNumber(startDate: string): number {
 }
 
 function getDaysUntilNextMonday(): number {
-  const dow = new Date().getDay();
+  const dow = logicalToday().getDay();
   return dow === 1 ? 7 : (8 - dow) % 7;
 }
 
