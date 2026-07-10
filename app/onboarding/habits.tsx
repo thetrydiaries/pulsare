@@ -171,25 +171,30 @@ export default function HabitsScreen() {
           <Text variant="serif" size={26} style={styles.question}>
             pick your 6 habits
           </Text>
-          <Text variant="label" style={styles.subtitle}>
-            {TARGET_PHASE_1} morning · {TARGET_PHASE_2} evening. you'll run these for a 21-day cycle, then review what stuck.
-          </Text>
 
-          {/* Explainer — why these habits, why phase 1/2, what 21 days does */}
+          {/* Explainer — placed at top so context lands before the picker */}
           <View style={styles.explainer}>
             <ExplainLine
               heading="phase 1 · 0–8h after waking"
-              body="cortisol, dopamine, and norepinephrine are elevated. hard habits ride this chemistry. the four suggested ones are the highest-leverage anchors from circadian + nervous system research — wake time sets the clock, light sets the day, delaying caffeine protects natural cortisol, and movement stacks BDNF."
+              body="cortisol, dopamine, and norepinephrine are elevated. hard habits ride this chemistry. the 4 suggested ones are the highest-leverage anchors from circadian + nervous system research — wake time sets the clock, light sets the day, delaying caffeine protects natural cortisol, and movement stacks BDNF."
             />
             <ExplainLine
               heading="phase 2 · 9–15h after waking"
-              body="serotonin rises, stress tapers. wind-down habits belong here. the two suggested ones are the capstone anchor (habit that serves your goal) and a compound wind-down (screens off + lights low + bedtime — one signal, not three)."
+              body="serotonin rises, stress tapers. wind-down habits belong here. the 2 suggested ones are the capstone anchor (habit that serves your goal) and a compound wind-down (screens off + lights low + bedtime — one signal, not three)."
             />
             <ExplainLine
               heading="21-day cycle"
               body="not when the habit is 'formed'. when you stop tracking and see what your body holds on its own. day 21 = review. some carry forward, some drop, some get swapped. three cycles = 63 days = deep."
             />
+            <ExplainLine
+              heading="the 4-of-6 rule"
+              body="you don't need all 6 every day. 4 = present. that's the whole point — a day where you did enough is a day that counts."
+            />
           </View>
+
+          <Text variant="label" style={styles.pickPrompt}>
+            {TARGET_PHASE_1} morning · {TARGET_PHASE_2} evening. tap "why this one?" on any tile.
+          </Text>
 
           <HabitGroup
             title="phase 1 — morning window"
@@ -212,7 +217,7 @@ export default function HabitsScreen() {
           />
 
           <Text variant="label" style={styles.micro}>
-            tap "why" on any habit to see the reasoning. you can swap any of these after your first 21-day review. the goal isn't the perfect stack — it's the one you'll actually run.
+            swap any of these after your first 21-day review. the goal isn't the perfect stack — it's the one you'll actually run.
           </Text>
         </View>
 
@@ -309,6 +314,7 @@ const styles = StyleSheet.create({
   content: { gap: 20, paddingVertical: 20 },
   question: { lineHeight: 36 },
   subtitle: { color: Colors.textTertiary, fontSize: 13, letterSpacing: 0.4, marginTop: -8, lineHeight: 18 },
+  pickPrompt: { color: Colors.textSecondary, fontSize: 13, letterSpacing: 0.4, lineHeight: 18, marginTop: 4 },
   explainer: {
     borderWidth: 0.5,
     borderColor: Colors.border,

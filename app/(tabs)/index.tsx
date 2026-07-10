@@ -25,7 +25,7 @@ import {
   getHabits, upsertHabit, setPersonalisedCopy, updateUser,
 } from '@/lib/storage';
 import { getPendingUnlock, getProjectTease, markBeatShown } from '@/lib/progression';
-import { getActiveHabits, addCustomHabit, editCustomHabit, getRevealedHabits, habitRevealDay } from '@/lib/habits';
+import { getActiveHabits, addCustomHabit, editCustomHabit } from '@/lib/habits';
 import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
 import {
   getLogicalDate, logicalToday, formatDate, timeIsAtOrAfter, currentTime, subtractHours,
@@ -180,15 +180,9 @@ export default function HomeScreen() {
 
     const currentWeekDates = getWeekDates();
 
-    const dayNum = daysSinceStart(user.startDate);
-    const allActive = getActiveHabits();
-    // Week-1 gradual reveal: only show habits whose reveal day has arrived.
-    const activeHabits = getRevealedHabits(allActive, dayNum);
+    const activeHabits = getActiveHabits();
     setHabits(activeHabits);
-
-    // A phase-1 anchor that becomes visible today gets a gentle "joins your anchors" beat.
-    const revealedToday = dayNum > 1 ? allActive.find((h) => habitRevealDay(h) === dayNum) : undefined;
-    setRevealBeat(revealedToday ? (revealedToday.userLabel ?? revealedToday.label) : null);
+    setRevealBeat(null);
 
     // Find breathwork habit for guide affordance
     const breathHabit = activeHabits.find((h) => h.suggestedId === 'nervous-system-reset');
