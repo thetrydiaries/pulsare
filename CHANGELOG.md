@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-10 — Huberman × 75 Hard: 21-day cycles, capstone, 6-habit picker
+
+Retired the phase 1/2/3 unlock system in favour of a Huberman-inspired model.
+
+- **New model** — 6 habits picked in onboarding, `PRESENCE_TARGET = 4` (4-of-6 = present). Split by `dayPhase: 'phase1' | 'phase2'` (0–8h vs 9–15h post-wake) instead of morning/evening group. Twenty-one-day cycles with day-21 review (`CycleReviewSheet.tsx` — mark automatic/willpower/drop, then `advanceCycle()` bumps cycleNumber). Seventy-five-day program arc surfaced as "day X of 75" on home.
+- **Capstone** — free-form north-star goal set in onboarding (`app/onboarding/capstone.tsx`). Weight-flavour goals auto-surface optional start/target numbers; other goals stay as pure text. Weekly Sunday check-in via `CapstoneCheckInSheet.tsx`. Home shows tappable strip; galaxy gets a `capstone` sub-tab with history + delta.
+- **Habit picker** — six-habit picker (`app/onboarding/habits.tsx`) with per-tile "why this one?" reveal and a top explainer block covering phase 1, phase 2, 21-day cycle, and the 4-of-6 rule. Consolidated `evening-anchor + consistent-bedtime + phone-off-reading` into a single **wind-down ritual** (one tick, not three). Added NSDR / yoga nidra. Renamed `water-before-coffee` → **"delay caffeine 90 min"** per Huberman's actual protocol.
+- **Learn tab** — replaced the 3-concept weekly rotation with a static 9-concept library (`lib/concepts.ts`) covering circadian rhythm, cortisol awakening, phase 1/2, task bracketing, 4-of-6 rule, 21-day cycle, capstone vs habit, never miss twice, identity-based habits. Deep-linking from galaxy `read more` now lands on the matching concept (bug fix — old code had `GALAXY_CONCEPTS` and `WEEKLY_CONCEPTS` as separate lists, so tapping "identity-based habits" on galaxy landed on "stacking" or nothing).
+- **Bug fixes** — `router.push('/(tabs)/learn')` → `router.navigate({ pathname, params })` with concept key. `getActiveHabits(user.currentPhase)` filter was blanking learn tab when `currentPhase` was undefined; parameter now optional. Removed the legacy `REVEAL_DAY` gate that was hiding morning-movement until day 4 (was leaking only 5 habits to the home screen after onboarding).
+- **Removed** — `components/PhaseExplainerModal.tsx`, `app/onboarding/movement.tsx`, `app/onboarding/evening.tsx`, and the `WEEK_LAYER_LABELS` / `phaseNameFor` helpers on home. Old `GALAXY_CONCEPTS` and `WEEKLY_CONCEPTS` arrays gone.
+- **Rollout** — two deploys: initial `pulsare-v7`, then `pulsare-v8` after fixing the reveal-gate leak and moving the onboarding explainer above the fold.
+
 ## 2026-07-04 — Phase 5: week-1 gradual reveal, warmer re-entry, contrast
 
 Final phase of the experience-review roadmap. Polish that lowers the barrier to staying.
