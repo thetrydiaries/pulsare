@@ -28,9 +28,14 @@ import {
   getUnshownMilestone,
   markMilestoneShown,
 } from '@/lib/progression';
+import { getConceptForWeek } from '@/lib/concepts';
+import { getCycleDay, CYCLE_LENGTH, isCycleReviewDay } from '@/lib/cycle';
+import { getCycleReview, getCapstoneLog, getLatestCapstoneEntry } from '@/lib/storage';
+import CycleReviewSheet from '@/components/CycleReviewSheet';
+import CapstoneCheckInSheet from '@/components/CapstoneCheckInSheet';
 import type { DayStats, Habit, StarState } from '@/types';
 
-type TabView = 'week' | 'month' | 'galaxy' | 'anchors';
+type TabView = 'week' | 'month' | 'galaxy' | 'anchors' | 'capstone';
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -42,40 +47,6 @@ const PROTOCOL_ORDER = [
   'morning-movement',
   'nervous-system-reset',
   'evening-anchor',
-];
-
-// ─── Galaxy concept cards (weeks 1–3) ────────────────────────────────────────
-
-interface GalaxyConcept {
-  title: string;
-  definition: string;
-}
-
-const GALAXY_CONCEPTS: GalaxyConcept[] = [
-  {
-    title: 'circadian rhythm',
-    definition: 'your body runs on a 24-hour internal clock that governs cortisol, mood, energy, and sleep — and consistency matters more than the time you choose.',
-  },
-  {
-    title: 'the cortisol awakening response',
-    definition: 'in the 30–45 minutes after waking, cortisol spikes naturally to prepare you for the day — what you do in that window either amplifies the spike or steadies it.',
-  },
-  {
-    title: 'neuroplasticity',
-    definition: 'every time you repeat a behaviour, the neural pathway for it becomes slightly more efficient — what you\'ve been doing for three weeks is literally restructuring your brain.',
-  },
-  {
-    title: 'consolidation',
-    definition: 'past three weeks, the wiring starts to hold on its own — the behaviour needs less willpower to run because the pathway is becoming the default.',
-  },
-  {
-    title: 'identity-based habits',
-    definition: 'the strongest habits aren\'t things you do, they\'re things you are. a month in, this stops being a protocol you follow and starts being someone you\'re becoming.',
-  },
-  {
-    title: 'why a lapse doesn\'t erase this',
-    definition: 'a missed day doesn\'t delete the pathway — it just goes quiet. the wiring is still there, which is why coming back is always faster than starting.',
-  },
 ];
 
 function getWeekNumber(startDate: string): number {
@@ -185,6 +156,8 @@ export default function GalaxyScreen() {
   const [lifetimeCounts, setLifetimeCounts] = useState<Record<string, number>>({});
   const [milestoneLevel, setMilestoneLevel] = useState(0);
   const [milestone, setMilestone] = useState<{ key: string; days: number; level: number } | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [capstoneSheetOpen, setCapstoneSheetOpen] = useState(false);
 
   const insets = useSafeAreaInsets();
   const canvasPaddingH = insets.left + 20;
@@ -227,8 +200,12 @@ export default function GalaxyScreen() {
   const today = getLogicalDate();
 
   const weekNum = getWeekNumber(user.startDate);
-  const conceptIndex = Math.min(weekNum - 1, GALAXY_CONCEPTS.length - 1);
-  const concept = GALAXY_CONCEPTS[conceptIndex];
+  const concept = getConceptForWeek(weekNum);
+  const cycleNumber = user.cycleNumber ?? 1;
+  const cycleDay = user.cycleStartDate ? getCycleDay(user.cycleStartDate) : 1;
+  const cycleReviewPending = user.cycleStartDate
+    ? isCycleReviewDay(user.cycleStartDate) && !getCycleReview(cycleNumber)
+    : false;
 
   const totalCompletions = Object.values(lifetimeCounts).reduce((s, n) => s + n, 0);
 
@@ -271,14 +248,16 @@ export default function GalaxyScreen() {
 
         {/* Stats row — above tabs for permanent visibility */}
         <View style={[styles.statsRow, { paddingHorizontal: canvasPaddingH }]}>
+          <StatBlock value={`${cycleDay} / ${CYCLE_LENGTH}`} label={`cycle ${cycleNumber}`} />
           <StatBlock value={presentDays} label="days present" />
-          <StatBlock value={monthDays} label="this month" />
           <StatBlock value={longestStretch} label="longest stretch" />
         </View>
 
         {/* Tabs */}
         <View style={[styles.tabs, { paddingLeft: canvasPaddingH, paddingRight: insets.right + 20 }]}>
-          {(['week', 'month', 'galaxy', 'anchors'] as TabView[]).map((t) => (
+          {((user.capstone
+            ? ['week', 'month', 'galaxy', 'anchors', 'capstone']
+            : ['week', 'month', 'galaxy', 'anchors']) as TabView[]).map((t) => (
             <TouchableOpacity
               key={t}
               style={styles.tab}
@@ -489,15 +468,49 @@ export default function GalaxyScreen() {
           </View>
         )}
 
+        {/* Capstone tab */}
+        {tab === 'capstone' && user.capstone && (
+          <View style={{ paddingHorizontal: canvasPaddingH, paddingTop: 8 }}>
+            <CapstonePane
+              onLog={() => setCapstoneSheetOpen(true)}
+            />
+          </View>
+        )}
+
+        {/* Day 21 — cycle review beat */}
+        {cycleReviewPending && tab !== 'anchors' && tab !== 'capstone' && (
+          <TouchableOpacity
+            style={[styles.reviewCard, { marginHorizontal: canvasPaddingH }]}
+            onPress={() => setReviewOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="open cycle review"
+          >
+            <Text variant="serif" size={18} style={styles.conceptTitle}>
+              cycle {cycleNumber} — 21 days done
+            </Text>
+            <Text variant="label" color={Colors.textSecondary} style={styles.conceptDef}>
+              stop tracking for a beat. notice what stuck. that's the real signal.
+            </Text>
+            <Text variant="label" color={Colors.tealText} style={styles.readMore}>
+              open review →
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Weekly concept card */}
-        {tab !== 'anchors' && (
+        {tab !== 'anchors' && tab !== 'capstone' && !cycleReviewPending && (
           <View style={[styles.conceptCard, { marginHorizontal: canvasPaddingH }]}>
             <Text variant="serif" size={18} style={styles.conceptTitle}>{concept.title}</Text>
             <Text variant="label" color={Colors.textSecondary} style={styles.conceptDef}>
               {concept.definition}
             </Text>
             <TouchableOpacity
-              onPress={() => router.push('/(tabs)/learn')}
+              onPress={() =>
+                router.navigate({
+                  pathname: '/(tabs)/learn',
+                  params: { concept: concept.key },
+                })
+              }
               accessibilityRole="link"
               accessibilityLabel="read more on learn screen"
             >
@@ -513,7 +526,103 @@ export default function GalaxyScreen() {
         date={editDate}
         onClose={() => { setEditDate(null); loadStats(); }}
       />
+
+      <CycleReviewSheet
+        visible={reviewOpen}
+        cycleNumber={cycleNumber}
+        onClose={() => { setReviewOpen(false); loadStats(); }}
+      />
+
+      <CapstoneCheckInSheet
+        visible={capstoneSheetOpen}
+        onClose={() => setCapstoneSheetOpen(false)}
+      />
     </SafeAreaView>
+  );
+}
+
+function CapstonePane({ onLog }: { onLog: () => void }) {
+  const user = getUser();
+  if (!user?.capstone) return null;
+  const log = getCapstoneLog();
+  const latest = getLatestCapstoneEntry();
+  const { goal, startValue, targetValue, unit = '' } = user.capstone;
+  const latestVal = latest?.value;
+  const delta = latestVal !== undefined && startValue !== undefined ? latestVal - startValue : null;
+  const remaining =
+    latestVal !== undefined && targetValue !== undefined ? latestVal - targetValue : null;
+
+  return (
+    <View style={styles.capstonePane}>
+      <View style={styles.capstoneHeader}>
+        <Text variant="label" color={Colors.textTertiary} style={styles.capstoneLabelStrip}>capstone</Text>
+        <Text variant="serif" size={22} style={styles.capstoneGoalLine}>{goal}</Text>
+      </View>
+
+      <View style={styles.capstoneRow}>
+        {startValue !== undefined && (
+          <View style={styles.capstoneStat}>
+            <Text variant="serif" size={22}>{startValue}{unit}</Text>
+            <Text variant="label" style={styles.statLabel}>start</Text>
+          </View>
+        )}
+        <View style={styles.capstoneStat}>
+          <Text variant="serif" size={22} color={Colors.tealText}>
+            {latestVal !== undefined ? `${latestVal}${unit}` : '—'}
+          </Text>
+          <Text variant="label" style={styles.statLabel}>latest</Text>
+        </View>
+        {targetValue !== undefined && (
+          <View style={styles.capstoneStat}>
+            <Text variant="serif" size={22}>{targetValue}{unit}</Text>
+            <Text variant="label" style={styles.statLabel}>target</Text>
+          </View>
+        )}
+      </View>
+
+      {delta !== null && (
+        <Text variant="label" color={Colors.textSecondary} style={styles.capstoneDelta}>
+          {delta === 0
+            ? 'holding at day 1 weight'
+            : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${unit} from day 1`}
+          {remaining !== null && ` · ${Math.abs(remaining).toFixed(1)}${unit} to target`}
+        </Text>
+      )}
+
+      <TouchableOpacity
+        style={styles.capstoneLogBtn}
+        onPress={onLog}
+        accessibilityRole="button"
+        accessibilityLabel="log this week's capstone"
+      >
+        <Text variant="label" color={Colors.tealText}>+ log this week</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 12 }} />
+
+      {log.length === 0 ? (
+        <Text variant="label" color={Colors.textTertiary} style={styles.capstoneEmpty}>
+          no entries yet. sunday mornings are the ritual.
+        </Text>
+      ) : (
+        <View>
+          <Text variant="label" style={styles.capstoneLabelStrip}>history</Text>
+          {[...log].reverse().map((entry) => (
+            <View key={entry.date} style={styles.capstoneEntry}>
+              <Text variant="label" style={styles.capstoneEntryDate}>{entry.date}</Text>
+              <Text variant="body" size={15} color={Colors.textSecondary}>
+                {entry.value !== undefined ? `${entry.value}${unit}` : '—'}
+              </Text>
+              {entry.note ? (
+                <Text variant="label" color={Colors.textTertiary} style={styles.capstoneEntryNote}>
+                  {entry.note}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -545,6 +654,42 @@ const styles = StyleSheet.create({
   },
   statBlock: { alignItems: 'flex-start', gap: 2, flex: 1 },
   statLabel: { fontSize: 10 },
+  capstonePane: { gap: 14 },
+  capstoneHeader: { gap: 4 },
+  capstoneLabelStrip: { letterSpacing: 0.6, fontSize: 11 },
+  capstoneGoalLine: { lineHeight: 28 },
+  capstoneRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 4,
+  },
+  capstoneStat: {
+    flex: 1,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  capstoneDelta: { fontSize: 13, lineHeight: 20 },
+  capstoneLogBtn: {
+    borderWidth: 0.5,
+    borderColor: Colors.tealAction,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  capstoneEmpty: { fontSize: 12, lineHeight: 18, paddingVertical: 8 },
+  capstoneEntry: {
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+    gap: 2,
+  },
+  capstoneEntryDate: { fontSize: 11, color: Colors.textTertiary, letterSpacing: 0.4 },
+  capstoneEntryNote: { fontSize: 12, lineHeight: 18, marginTop: 2 },
 
   tabs: {
     flexDirection: 'row',
@@ -681,6 +826,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
+    borderRadius: 16,
+    padding: 20,
+    gap: 10,
+  },
+  reviewCard: {
+    marginTop: 32,
+    backgroundColor: `${Colors.tealAction}18`,
+    borderWidth: 1,
+    borderColor: Colors.tealAction,
     borderRadius: 16,
     padding: 20,
     gap: 10,

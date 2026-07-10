@@ -14,10 +14,16 @@ import type { Habit } from '@/types';
 
 const COMPLETION_FALLBACKS: Record<string, string> = {
   'wake-anchor': 'the anchor holds.',
+  'morning-light': 'the clock is set.',
   'water-before-coffee': 'before the caffeine. good.',
   'morning-movement': 'signal sent.',
   'nervous-system-reset': "two minutes. that's all is needed.",
+  breakfast: 'blood sugar steady.',
+  'calorie-log': 'seen. that\'s the whole thing.',
+  'evening-journal': 'buffer cleared.',
   'evening-anchor': 'you ended the day with intention.',
+  'phone-off-reading': 'melatonin, uninterrupted.',
+  nsdr: 'dopamine restored.',
 };
 
 interface Props {

@@ -8,11 +8,12 @@ import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import { storage } from '@/lib/storage';
 import { setUser, setOnboardingComplete } from '@/lib/storage';
-import { initPhase1Habits, addCustomHabit } from '@/lib/habits';
+import { initHubermanHabits } from '@/lib/habits';
 import { scheduleAllNotifications, requestPermissions } from '@/lib/notifications';
 import { formatDate, addMinutes, subtractHours } from '@/lib/dayBoundary';
 import { generatePersonalisedCopy } from '@/lib/personalisedCopy';
-import type { User, EveningHabitType } from '@/types';
+import { PROGRAM_LENGTH } from '@/lib/cycle';
+import type { User, EveningHabitType, Capstone, CapstoneType } from '@/types';
 
 function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number);
@@ -21,27 +22,54 @@ function formatTime(hhmm: string): string {
   return `${dh}:${m.toString().padStart(2, '0')}${ampm}`;
 }
 
+function loadSelectedHabits(): string[] {
+  const raw = storage.getString('onboarding.selectedHabits');
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadCapstone(): Capstone | undefined {
+  const goal = storage.getString('onboarding.capstone.goal');
+  if (!goal) return undefined;
+  const type = (storage.getString('onboarding.capstone.type') as CapstoneType) ?? 'other';
+  const startValue = storage.getString('onboarding.capstone.startValue');
+  const targetValue = storage.getString('onboarding.capstone.targetValue');
+  const unit = storage.getString('onboarding.capstone.unit') ?? undefined;
+  return {
+    goal,
+    type,
+    startValue: startValue ? Number(startValue) : undefined,
+    targetValue: targetValue ? Number(targetValue) : undefined,
+    unit,
+  };
+}
+
 export default function HandoffScreen() {
   const name = storage.getString('onboarding.name') ?? 'you';
   const wakeTime = storage.getString('onboarding.wakeTime') ?? '07:00';
-  const movement = storage.getString('onboarding.movement') ?? 'morning movement';
-  const eveningLabel = storage.getString('onboarding.eveningHabitLabel') ?? 'evening habit';
   const windDown = storage.getString('onboarding.notif.windDown') ?? '21:30';
   const startDate = storage.getString('onboarding.startDate') ?? formatDate(new Date());
   const bedtime = subtractHours(wakeTime, 8.5);
+  const capstone = loadCapstone();
+  const selectedHabits = loadSelectedHabits();
 
   async function handleReady() {
     const user: User = {
       name,
       startDate,
-      currentPhase: 1,
+      currentPhase: 1, // legacy — retired; kept for back-compat until Step 10
       phaseUnlockState: 'active',
       wakeTime,
-      movementType: movement,
+      movementType: storage.getString('onboarding.movement') ?? 'movement',
       breathworkExperience: (storage.getString('onboarding.breathworkExperience') ?? 'no') as 'yes' | 'no',
       breathworkPractice: storage.getString('onboarding.breathworkPractice') ?? null,
       eveningHabitType: (storage.getString('onboarding.eveningHabitType') ?? 'custom') as EveningHabitType,
-      eveningHabitLabel: eveningLabel,
+      eveningHabitLabel: storage.getString('onboarding.eveningHabitLabel') ?? 'wind-down',
       projectName: storage.getString('onboarding.project') ?? null,
       notificationTimes: {
         morning: storage.getString('onboarding.notif.morning') ?? wakeTime,
@@ -49,16 +77,14 @@ export default function HandoffScreen() {
         windDown,
       },
       startingMood: storage.getString('onboarding.mood') ?? '',
+      capstone,
+      cycleStartDate: startDate,
+      cycleNumber: 1,
+      programLength: PROGRAM_LENGTH,
     };
 
     setUser(user);
-    initPhase1Habits(user);
-
-    const customName = storage.getString('onboarding.customHabit.name');
-    const customGroup = storage.getString('onboarding.customHabit.group') as 'morning' | 'evening' | undefined;
-    if (customName && (customGroup === 'morning' || customGroup === 'evening')) {
-      addCustomHabit(customName, customGroup, 1);
-    }
+    initHubermanHabits(user, selectedHabits);
 
     setOnboardingComplete();
 
@@ -92,15 +118,16 @@ export default function HandoffScreen() {
 
           <View style={styles.summary}>
             <SummaryRow label="wake at" value={formatTime(wakeTime)} />
-            <SummaryRow label="morning light" value="within 30 min" />
-            <SummaryRow label={movement} value="before midday" />
-            <SummaryRow label="2 minutes of breathing" value="any time" />
-            <SummaryRow label="water before coffee" value="every morning" />
-            <SummaryRow label={eveningLabel} value={`from ${formatTime(windDown)}`} />
+            {capstone && (
+              <SummaryRow label="capstone" value={capstone.goal} />
+            )}
+            <SummaryRow label="6 habits picked" value={`hit 4 = present`} />
+            <SummaryRow label="wind-down" value={`from ${formatTime(windDown)}`} />
+            <SummaryRow label="cycle 1" value="21 days · review at day 21" />
           </View>
 
           <Text variant="label" color={Colors.textTertiary} style={styles.anchorNote}>
-            these aren't rules. they're anchors — the sequence is the science. read them once and your brain does the rest.
+            you're not meant to hit all 6 every day. four is present. the goal isn't perfection — it's showing up more often than not.
           </Text>
 
           <Text variant="label" style={styles.bedNote}>

@@ -10,8 +10,8 @@ const ONBOARDING_ROUTES = [
   '/onboarding/welcome',       // 0
   '/onboarding/name',          // 1
   '/onboarding/wake-time',     // 2
-  '/onboarding/movement',      // 3
-  '/onboarding/evening',       // 4
+  '/onboarding/capstone',      // 3
+  '/onboarding/habits',        // 4
   '/onboarding/notifications', // 5
   '/onboarding/handoff',       // 6
 ] as const;

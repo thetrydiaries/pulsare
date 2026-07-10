@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
-import type { Habit, Phase, HabitGroup, User } from '@/types';
+import type { Habit, Phase, HabitGroup, DayPhase, User } from '@/types';
 import { getHabits, upsertHabit, setHabits, storage } from './storage';
 
 // ─── Micro-explanations by suggestedId ──────────────────────────────────────
@@ -32,7 +32,44 @@ export const MICRO_EXPLANATIONS: Record<string, string> = {
     'sleep is now tracked. bedtime within 30 min of target counts as complete.',
   'project-output':
     'the hour becomes 90 minutes. initiation is still the only real threshold.',
+  'calorie-log':
+    'you can\'t change what you don\'t see. logging is the whole habit — the number just follows.',
+  'evening-journal':
+    'clear the buffer. three sentences. what happened, what stuck, what tomorrow needs.',
+  nsdr:
+    'ten minutes of non-sleep deep rest. restores dopamine and focus without needing to fall asleep.',
 };
+
+// ─── Default dayPhase mapping by suggestedId (Huberman: phase 1 vs phase 2) ──
+
+export const DAY_PHASE_BY_SUGGESTED_ID: Record<string, DayPhase> = {
+  'wake-anchor': 'phase1',
+  'morning-light': 'phase1',
+  'water-before-coffee': 'phase1',
+  'morning-movement': 'phase1',
+  breakfast: 'phase1',
+  'nervous-system-reset': 'phase1',
+  'morning-pages': 'phase1',
+  'project-hour': 'phase1',
+  // phase 2 — low friction, wind-down window
+  'calorie-log': 'phase2',
+  'evening-journal': 'phase2',
+  'evening-anchor': 'phase2',
+  'consistent-bedtime': 'phase2',
+  'phone-off-reading': 'phase2',
+  'protected-sleep': 'phase2',
+  'diet-anchor': 'phase2',
+  nsdr: 'phase2',
+};
+
+/** Default day-phase for a habit — falls back to `group` when suggestedId is unknown. */
+export function resolveDayPhase(habit: Pick<Habit, 'dayPhase' | 'group' | 'suggestedId'>): DayPhase {
+  if (habit.dayPhase) return habit.dayPhase;
+  if (habit.suggestedId && DAY_PHASE_BY_SUGGESTED_ID[habit.suggestedId]) {
+    return DAY_PHASE_BY_SUGGESTED_ID[habit.suggestedId];
+  }
+  return habit.group === 'morning' ? 'phase1' : 'phase2';
+}
 
 // ─── Evening micro-explanations by habit type ────────────────────────────────
 
@@ -59,6 +96,7 @@ function makeHabit(
     label,
     microExplanation: microExplanation ?? MICRO_EXPLANATIONS[suggestedId] ?? null,
     phase,
+    dayPhase: DAY_PHASE_BY_SUGGESTED_ID[suggestedId] ?? (group === 'morning' ? 'phase1' : 'phase2'),
     group,
     locked,
     isCustom: false,
@@ -66,6 +104,22 @@ function makeHabit(
     active: true,
     createdAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Backfill dayPhase on any existing habits missing the field. Idempotent —
+ * safe to run at app startup for users created before the Huberman migration.
+ */
+export function backfillDayPhase(): void {
+  const habits = getHabits();
+  let dirty = false;
+  for (const [id, h] of Object.entries(habits)) {
+    if (!h.dayPhase) {
+      habits[id] = { ...h, dayPhase: resolveDayPhase(h) };
+      dirty = true;
+    }
+  }
+  if (dirty) setHabits(habits);
 }
 
 export function initPhase1Habits(user: User): void {
@@ -114,6 +168,68 @@ export function initPhase1Habits(user: User): void {
   habits[evening.id] = evening;
 
   setHabits(habits);
+}
+
+// ─── Huberman seed: instantiate the 6 habits picked in onboarding ───────────
+
+const HABIT_LABELS: Record<string, string> = {
+  'wake-anchor': 'wake up alarm',
+  'morning-light': 'morning light',
+  'water-before-coffee': 'delay caffeine 90 min',
+  'morning-movement': 'movement',
+  breakfast: 'protein-first breakfast',
+  'nervous-system-reset': 'breathwork',
+  'calorie-log': 'capstone anchor',
+  'evening-journal': 'journal (3 sentences)',
+  'evening-anchor': 'wind-down ritual',
+  'consistent-bedtime': 'consistent bedtime',
+  'phone-off-reading': 'read fiction',
+  nsdr: 'nsdr / yoga nidra',
+};
+
+const HABIT_GROUP: Record<string, HabitGroup> = {
+  'wake-anchor': 'morning',
+  'morning-light': 'morning',
+  'water-before-coffee': 'morning',
+  'morning-movement': 'morning',
+  breakfast: 'morning',
+  'nervous-system-reset': 'morning',
+  'calorie-log': 'evening',
+  'evening-journal': 'evening',
+  'evening-anchor': 'evening',
+  'consistent-bedtime': 'evening',
+  'phone-off-reading': 'evening',
+  nsdr: 'evening',
+};
+
+const HABIT_LOCKED: Record<string, boolean> = {
+  'wake-anchor': true,
+  'water-before-coffee': true,
+};
+
+/**
+ * Seed habits from the onboarding picker. Replaces the old phase-1/2/3
+ * progression seed; every selected habit is active immediately.
+ */
+export function initHubermanHabits(user: User, selectedIds: string[]): void {
+  const habits: Record<string, Habit> = {};
+  for (const id of selectedIds) {
+    const label = resolveSeedLabel(id, user);
+    const group = HABIT_GROUP[id] ?? 'morning';
+    const locked = HABIT_LOCKED[id] ?? false;
+    const habit = makeHabit(id, label, 1, group, locked);
+    habits[habit.id] = habit;
+  }
+  setHabits(habits);
+}
+
+function resolveSeedLabel(id: string, user: User): string {
+  if (id === 'morning-movement' && user.movementType) return user.movementType;
+  if (id === 'evening-anchor' && user.eveningHabitLabel) return user.eveningHabitLabel;
+  if (id === 'nervous-system-reset' && user.breathworkExperience === 'yes' && user.breathworkPractice) {
+    return user.breathworkPractice;
+  }
+  return HABIT_LABELS[id] ?? id;
 }
 
 // ─── Phase 2 / 3 catalog (unlocked progressively, not at onboarding) ─────────
@@ -218,20 +334,29 @@ export function getRevealedHabits(habits: Habit[], dayNumber: number): Habit[] {
 
 // ─── Presence threshold ──────────────────────────────────────────────────────
 
+// Huberman 4-of-6 rule: present = 4 habits/day. Clamps when someone has fewer
+// than 4 active habits (rare mid-migration state) so partial setups still work.
+export const PRESENCE_TARGET = 4;
 export function getPresenceThreshold(activeHabitCount: number): number {
-  return Math.ceil(activeHabitCount / 2);
+  return Math.min(PRESENCE_TARGET, Math.max(1, activeHabitCount));
 }
 
 export function isDayPresent(habitsComplete: number, activeHabitCount: number): boolean {
   return habitsComplete >= getPresenceThreshold(activeHabitCount);
 }
 
-// ─── Get active habits for a phase (sorted morning then evening) ─────────────
+// ─── Get active habits (sorted morning then evening) ─────────────────────────
+// Phase progression retired — habits gate on `active` only. Optional `phase`
+// arg kept for legacy callers during the Huberman-model migration.
 
-export function getActiveHabits(phase: Phase): Habit[] {
+export function getActiveHabits(phase?: Phase): Habit[] {
   const habits = getHabits();
   return Object.values(habits)
-    .filter((h) => h.active && h.phase <= phase)
+    .filter((h) => {
+      if (!h.active) return false;
+      if (phase !== undefined && h.phase > phase) return false;
+      return true;
+    })
     .sort((a, b) => {
       if (a.group === b.group) return 0;
       return a.group === 'morning' ? -1 : 1;

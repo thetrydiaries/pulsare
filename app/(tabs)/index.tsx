@@ -14,8 +14,8 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import HabitRow from '@/components/habits/HabitRow';
 import WeekStrip from '@/components/habits/WeekStrip';
-import PhaseExplainerModal from '@/components/PhaseExplainerModal';
 import CustomHabitSheet from '@/components/CustomHabitSheet';
+import CapstoneCheckInSheet from '@/components/CapstoneCheckInSheet';
 import PastDayEditSheet from '@/components/PastDayEditSheet';
 import BreathworkGuide from '@/components/BreathworkGuide';
 import type { TechniqueKey } from '@/components/BreathworkGuide';
@@ -33,6 +33,7 @@ import {
 import {
   getRangeStats, recalculateStreak, isFallOff, isMissedOneDayOnly, getPresentDaysCount,
 } from '@/lib/presence';
+import { getCycleDay, getProgramDay, CYCLE_LENGTH, PROGRAM_LENGTH } from '@/lib/cycle';
 import { getStreakData } from '@/lib/storage';
 import { scheduleNeverMissTwiceNudge, scheduleCustomHabitNotification, cancelCustomHabitNotification, syncPush } from '@/lib/notifications';
 import { daysSinceStart } from '@/lib/dayBoundary';
@@ -95,20 +96,6 @@ function getPersonalisedGreeting(userName: string, startDate: string): string {
   return `${getGreeting()}, ${userName}.`;
 }
 
-// ─── Phase helpers ────────────────────────────────────────────────────────────
-
-function phaseNameFor(phase: number): string {
-  if (phase === 1) return 'stabilise';
-  if (phase === 2) return 'build';
-  return 'raise the stakes';
-}
-
-const WEEK_LAYER_LABELS: Record<number, string> = {
-  1: 'week 1 · presence',
-  2: 'week 2 · timing',
-  3: 'week 3 · stacking',
-};
-
 function getWeekNumber(startDate: string): number {
   return Math.max(1, Math.ceil(daysSinceStart(startDate) / 7));
 }
@@ -156,10 +143,10 @@ export default function HomeScreen() {
   const [isEveningTime, setIsEveningTime] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
   const [isSunday, setIsSunday] = useState(false);
-  const [phaseModalVisible, setPhaseModalVisible] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetGroup, setSheetGroup] = useState<'morning' | 'evening'>('morning');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [capstoneSheetOpen, setCapstoneSheetOpen] = useState(false);
   const [editDate, setEditDate] = useState<string | null>(null);
   const [guideVisible, setGuideVisible] = useState(false);
   const [guideTechnique, setGuideTechnique] = useState<TechniqueKey>('physiological-sigh');
@@ -193,9 +180,8 @@ export default function HomeScreen() {
 
     const currentWeekDates = getWeekDates();
 
-    const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
     const dayNum = daysSinceStart(user.startDate);
-    const allActive = getActiveHabits(effectivePhase);
+    const allActive = getActiveHabits();
     // Week-1 gradual reveal: only show habits whose reveal day has arrived.
     const activeHabits = getRevealedHabits(allActive, dayNum);
     setHabits(activeHabits);
@@ -356,7 +342,6 @@ export default function HomeScreen() {
   const weekDates = getWeekDates();
   const todayIndex = getTodayIndex(weekDates);
 
-  const effectivePhase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
   const morning = habits.filter((h) => h.group === 'morning');
   const evening = habits.filter((h) => h.group === 'evening');
   const customMorningCount = habits.filter((h) => h.isCustom && h.group === 'morning').length;
@@ -368,7 +353,9 @@ export default function HomeScreen() {
   const greeting = getPersonalisedGreeting(user.name, user.startDate);
 
   const weekNum = getWeekNumber(user.startDate);
-  const weekLayerLabel = effectivePhase === 1 ? WEEK_LAYER_LABELS[Math.min(weekNum, 3)] : null;
+  const cycleNumber = user.cycleNumber ?? 1;
+  const cycleDay = user.cycleStartDate ? getCycleDay(user.cycleStartDate) : 1;
+  const programDay = getProgramDay(user.startDate);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -383,24 +370,14 @@ export default function HomeScreen() {
             {logicalToday().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
           </Text>
           <View style={styles.statusRight}>
-            <TouchableOpacity
-              onPress={() => setPhaseModalVisible(true)}
-              style={styles.phaseLabelBtn}
-              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              accessibilityRole="button"
-              accessibilityLabel="tap to see all phases"
-            >
+            <View style={styles.phaseLabelBtn}>
               <Text variant="label" color={Colors.tealText}>
-                {`phase ${effectivePhase} · ${phaseNameFor(effectivePhase)}`}
+                cycle {cycleNumber} · day {cycleDay} of {CYCLE_LENGTH}
               </Text>
-              {weekLayerLabel ? (
-                <Text variant="label" color={Colors.textTertiary} style={styles.weekLayerLabel}>
-                  {weekLayerLabel}
-                </Text>
-              ) : (
-                <View style={styles.phaseDot} />
-              )}
-            </TouchableOpacity>
+              <Text variant="label" color={Colors.textTertiary} style={styles.weekLayerLabel}>
+                {programDay <= PROGRAM_LENGTH ? `day ${programDay} of ${PROGRAM_LENGTH}` : 'integration'}
+              </Text>
+            </View>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/profile')}
               style={styles.settingsBtn}
@@ -411,6 +388,18 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {user.capstone && (
+          <TouchableOpacity
+            style={styles.capstoneStrip}
+            onPress={() => setCapstoneSheetOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="log this week's capstone"
+          >
+            <Text variant="label" color={Colors.textTertiary} style={styles.capstoneLabel}>capstone</Text>
+            <Text variant="label" color={Colors.textSecondary} style={styles.capstoneGoal}>{user.capstone.goal}</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Greeting */}
         <Text variant="serif" size={26} style={styles.greeting}>
@@ -433,7 +422,9 @@ export default function HomeScreen() {
         {/* Presence block */}
         <View style={styles.presenceBlock}>
           <Text variant="serif" size={40}>{presentDays}</Text>
-          <Text variant="label" style={styles.presenceLabel}>days present</Text>
+          <Text variant="label" style={styles.presenceLabel}>
+            days present · 4 of 6 = present
+          </Text>
         </View>
 
         {/* Week strip */}
@@ -537,14 +528,6 @@ export default function HomeScreen() {
         </Text>
       </ScrollView>
 
-      <PhaseExplainerModal
-        visible={phaseModalVisible}
-        onClose={() => setPhaseModalVisible(false)}
-        currentPhase={effectivePhase}
-        habits={habits}
-        onHabitsChanged={load}
-      />
-
       <CustomHabitSheet
         visible={sheetVisible}
         defaultGroup={sheetGroup}
@@ -563,6 +546,11 @@ export default function HomeScreen() {
         technique={guideTechnique}
         onDismiss={() => setGuideVisible(false)}
         onComplete={handleBreathworkComplete}
+      />
+
+      <CapstoneCheckInSheet
+        visible={capstoneSheetOpen}
+        onClose={() => setCapstoneSheetOpen(false)}
       />
     </SafeAreaView>
   );
@@ -611,6 +599,25 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  capstoneStrip: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    marginTop: 4,
+  },
+  capstoneLabel: {
+    fontSize: 11,
+    letterSpacing: 0.6,
+  },
+  capstoneGoal: {
+    fontSize: 13,
   },
   greeting: {
     marginTop: 8,

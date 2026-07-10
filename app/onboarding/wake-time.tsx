@@ -15,7 +15,7 @@ export default function WakeTimeScreen() {
   function handleNext() {
     storage.set('onboarding.wakeTime', wakeTime);
     setOnboardingLastScreen(2);
-    router.push('/onboarding/movement');
+    router.push('/onboarding/capstone');
   }
 
   return (

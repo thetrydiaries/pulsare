@@ -7,6 +7,8 @@ import type {
   WeeklyReflection,
   PersonalisedCopy,
   ProgressionState,
+  CapstoneEntry,
+  CycleReview,
 } from '@/types';
 
 // ─── In-memory cache (keeps the synchronous API intact) ─────────────────────
@@ -102,7 +104,7 @@ export function setOnboardingComplete(): void {
 // a different flow version means the stored screen index refers to a screen that
 // no longer exists (or now means something else), so it's discarded on resume
 // rather than silently dropping the user into the middle of the new flow.
-export const ONBOARDING_FLOW_VERSION = 2;
+export const ONBOARDING_FLOW_VERSION = 3;
 
 // Returns -1 if no progress saved.
 export function getOnboardingLastScreen(): number {
@@ -242,6 +244,47 @@ export function setProgressionState(state: ProgressionState): void {
 
 export function updateProgressionState(partial: Partial<ProgressionState>): void {
   setProgressionState({ ...getProgressionState(), ...partial });
+}
+
+// ─── Capstone log (weekly weight/photo check-ins) ────────────────────────────
+
+export function getCapstoneLog(): CapstoneEntry[] {
+  return get<CapstoneEntry[]>('capstoneLog') ?? [];
+}
+
+export function addCapstoneEntry(entry: CapstoneEntry): void {
+  const log = getCapstoneLog();
+  const existingIdx = log.findIndex((e) => e.date === entry.date);
+  if (existingIdx >= 0) {
+    log[existingIdx] = { ...log[existingIdx], ...entry };
+  } else {
+    log.push(entry);
+    log.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  set('capstoneLog', log);
+}
+
+export function getLatestCapstoneEntry(): CapstoneEntry | null {
+  const log = getCapstoneLog();
+  return log.length ? log[log.length - 1] : null;
+}
+
+// ─── Cycle reviews (21-day review sheets) ────────────────────────────────────
+
+export function getCycleReview(cycleNumber: number): CycleReview | null {
+  return get<CycleReview>(`cycleReview:${cycleNumber}`);
+}
+
+export function setCycleReview(review: CycleReview): void {
+  set(`cycleReview:${review.cycleNumber}`, review);
+}
+
+export function getAllCycleReviews(): CycleReview[] {
+  return storage.getAllKeys()
+    .filter((k) => k.startsWith('cycleReview:'))
+    .map((k) => get<CycleReview>(k))
+    .filter((r): r is CycleReview => r !== null)
+    .sort((a, b) => a.cycleNumber - b.cycleNumber);
 }
 
 // ─── Backup: export / import ─────────────────────────────────────────────────

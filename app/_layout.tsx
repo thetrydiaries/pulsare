@@ -17,6 +17,8 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '@/constants/colors';
 import { initStorage } from '@/lib/storage';
+import { backfillDayPhase } from '@/lib/habits';
+import { ensureCycleFields } from '@/lib/cycle';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -33,7 +35,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initStorage().then(() => setStorageReady(true));
+    initStorage().then(() => {
+      // One-shot Huberman-migration backfills — idempotent, safe on every boot.
+      backfillDayPhase();
+      ensureCycleFields();
+      setStorageReady(true);
+    });
   }, []);
 
   useEffect(() => {
