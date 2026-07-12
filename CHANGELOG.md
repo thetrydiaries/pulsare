@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-07-12 — Brand correction v9: north star, wake ritual, pause/swap, cycle-paced copy
+
+Executed `pulsare_brand_correction_brief_v9_final.md` (sessions 1 scope) — corrects the brand drift from the 2026-07-10 ship. Live as `pulsare-v9`.
+
+- **Guardrails** — six product guardrails + two hard rules (no influencer/challenge branding, no outcome tracking) added to `CLAUDE.md` so future sessions can't drift the same way.
+- **De-brand** — zero "Huberman"/"75 Hard" in user-facing copy or identifiers (`initHubermanHabits` → `seedHabits`); the two named-copy strings in `concepts.ts`/`learn.tsx` neutralised. 75-day arc retired (`PROGRAM_LENGTH`, "day X of 75" sub-line gone; cycles run indefinitely). Day-21 milestone fallback now "three weeks. now we see what your body kept." — the app no longer contradicts its own Learn copy.
+- **Wake ritual merge** — `wake-anchor` + `morning-light` merged into one "wake ritual" habit (micro: same wake time, light within 10 min). One-shot boot migration (`migration.wakeLightMerged`): deactivates morning-light, refreshes wake-anchor label/micro, clears all `locked` flags; logs untouched. Breathwork promoted to 6th onboarding default.
+- **North star** — every user-facing "capstone" → "north star". Onboarding screen is one free-text line (weight inference, unit pills, start/target fields deleted); `Capstone` type is goal-only with legacy fields optional-and-unread. `CapstoneCheckInSheet`, galaxy capstone tab/pane, and `capstoneLog` storage all deleted. Home strip is static text; the goal's one editable home is profile → your reset (fontSize 16, no iOS zoom).
+- **Phase-unlock retired** — `getPendingUnlock`/`accept`/`defer`, `/unlock` route, `PHASE_CATALOG` machinery all deleted; the day-21/22 unlock-after-review collision can no longer happen. Kept: project tease, galaxy milestones. `PHASE1_QUESTIONS` → `REFLECTION_QUESTIONS`; stale "current phase" row dropped from profile.
+- **Pause + swap** — profile "your anchors" lists every habit (system + custom) with pause/resume; edit sheet gains a quiet "pause this anchor" action; nothing is locked. Day-21 review now acts on drops: dropped anchors deactivate and an optional bench picker (`getBenchOptions`/`instantiateSeedHabit`) seeds replacements, recorded in `CycleReview.replacedWith`. Review button says `start cycle N+1` (was hardcoded "2").
+- **Cycle-paced copy engine** — `getConceptForWeek` bridge replaced by `getConceptForCycle(cycleNumber, cycleDay)` (~2 concepts/week in cycle 1; north-star-vs-habit, never-miss-twice, identity land in cycle 2+). Breathwork technique pacing + learn library unlocks follow cycle day. `capstone-vs-habit` concept rewritten as `north-star-vs-habit` (no gauge framing, no weight example).
+- **AI prompts caught up** — `api/generate-copy.ts` now takes `selectedHabits` (ids + live labels) and `northStar` from the request body and generates explanations/acks for the actual stack (was hardcoded to five retired ids). Both prompts carry voice + accuracy guardrails (no named influencers, no quantified claims); day-21 greeting rule encodes "see what stuck, never habit formed". Client sends active habits + goal; one-shot fetch-then-swap regeneration on boot (`personalisedCopy.regenV2`) replaces stale cached copy while preserving shown milestones.
+- **Presence label honest** — home shows `{threshold} of {activeCount} = present`, derived via `getPresenceThreshold`; the 4-target clamp is documented as intentional engineered slack.
+- **Verified** — tsc clean (3 pre-existing platform-split errors only), full browser walk on live dev data (merge migration, pause/resume across boots, day-21 drop+replace end-to-end, cycle-paced concepts, fresh onboarding defaults), qa-review blockers fixed (threshold label, migration flag ordering, bench pill touch targets).
+- **Still open from the brief** — 1.4 onboarding confirm-screen rewrite (plan → sign-off), Tier 3 accuracy/contrast/dimming sweep, Phase 2 galaxy clusters + beacon (plan → sign-off), Tier 4 four-point PNGs (Shirley, Procreate).
+
 ## 2026-07-10 — Huberman × 75 Hard: 21-day cycles, capstone, 6-habit picker
 
 Retired the phase 1/2/3 unlock system in favour of a Huberman-inspired model.
