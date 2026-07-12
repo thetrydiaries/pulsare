@@ -7,7 +7,6 @@ import type {
   WeeklyReflection,
   PersonalisedCopy,
   ProgressionState,
-  CapstoneEntry,
   CycleReview,
 } from '@/types';
 
@@ -246,28 +245,8 @@ export function updateProgressionState(partial: Partial<ProgressionState>): void
   setProgressionState({ ...getProgressionState(), ...partial });
 }
 
-// ─── Capstone log (weekly weight/photo check-ins) ────────────────────────────
-
-export function getCapstoneLog(): CapstoneEntry[] {
-  return get<CapstoneEntry[]>('capstoneLog') ?? [];
-}
-
-export function addCapstoneEntry(entry: CapstoneEntry): void {
-  const log = getCapstoneLog();
-  const existingIdx = log.findIndex((e) => e.date === entry.date);
-  if (existingIdx >= 0) {
-    log[existingIdx] = { ...log[existingIdx], ...entry };
-  } else {
-    log.push(entry);
-    log.sort((a, b) => a.date.localeCompare(b.date));
-  }
-  set('capstoneLog', log);
-}
-
-export function getLatestCapstoneEntry(): CapstoneEntry | null {
-  const log = getCapstoneLog();
-  return log.length ? log[log.length - 1] : null;
-}
+// (Capstone weekly log retired — the north star is a direction, not a metric.
+// Old `capstoneLog` data stays in storage untouched; nothing reads it.)
 
 // ─── Cycle reviews (21-day review sheets) ────────────────────────────────────
 

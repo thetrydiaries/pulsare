@@ -13,7 +13,13 @@ import { Colors } from '@/constants/colors';
 import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import { getUser, setCycleReview, getCycleReview } from '@/lib/storage';
-import { getActiveHabits } from '@/lib/habits';
+import {
+  getActiveHabits,
+  getBenchOptions,
+  instantiateSeedHabit,
+  setHabitActive,
+  type BenchOption,
+} from '@/lib/habits';
 import { advanceCycle } from '@/lib/cycle';
 import { getLogicalDate } from '@/lib/dayBoundary';
 import type { Habit, CycleReview } from '@/types';
@@ -30,12 +36,16 @@ export default function CycleReviewSheet({ visible, cycleNumber, onClose }: Prop
   const [habits, setHabits] = useState<Habit[]>([]);
   const [marks, setMarks] = useState<Record<string, Mark>>({});
   const [note, setNote] = useState('');
+  const [bench, setBench] = useState<BenchOption[]>([]);
+  const [replacements, setReplacements] = useState<string[]>([]); // suggestedIds picked off the bench
 
   useEffect(() => {
     if (!visible) return;
     const user = getUser();
     if (!user) return;
     setHabits(getActiveHabits());
+    setBench(getBenchOptions(user));
+    setReplacements([]);
     const existing = getCycleReview(cycleNumber);
     if (existing) {
       const marks: Record<string, Mark> = {};
@@ -50,6 +60,8 @@ export default function CycleReviewSheet({ visible, cycleNumber, onClose }: Prop
     }
   }, [visible, cycleNumber]);
 
+  const dropCount = Object.values(marks).filter((m) => m === 'drop').length;
+
   function setMark(id: string, mark: Mark) {
     setMarks((prev) => {
       const next = { ...prev };
@@ -59,7 +71,17 @@ export default function CycleReviewSheet({ visible, cycleNumber, onClose }: Prop
     });
   }
 
+  function toggleReplacement(suggestedId: string) {
+    setReplacements((prev) => {
+      if (prev.includes(suggestedId)) return prev.filter((id) => id !== suggestedId);
+      if (prev.length >= dropCount) return prev; // one replacement per dropped slot
+      return [...prev, suggestedId];
+    });
+  }
+
   function handleConfirm() {
+    const user = getUser();
+    if (!user) return;
     const stuck: string[] = [];
     const willpower: string[] = [];
     const dropped: string[] = [];
@@ -68,13 +90,23 @@ export default function CycleReviewSheet({ visible, cycleNumber, onClose }: Prop
       else if (m === 'willpower') willpower.push(id);
       else if (m === 'drop') dropped.push(id);
     }
+
+    // The review is the swap moment: dropped anchors actually come off the
+    // list (logs untouched), and bench picks take their slots.
+    const replacedWith: Record<string, string> = {};
+    for (const id of dropped) setHabitActive(id, false);
+    replacements.slice(0, dropped.length).forEach((suggestedId, i) => {
+      const habit = instantiateSeedHabit(suggestedId, user);
+      if (habit && dropped[i]) replacedWith[dropped[i]] = habit.id;
+    });
+
     const review: CycleReview = {
       cycleNumber,
       completedAt: getLogicalDate(),
       stuck,
       willpower,
       dropped,
-      replacedWith: {},
+      replacedWith,
       note: note.trim() || undefined,
     };
     setCycleReview(review);
@@ -153,6 +185,39 @@ export default function CycleReviewSheet({ visible, cycleNumber, onClose }: Prop
               })}
             </View>
 
+            {dropCount > 0 && bench.length > 0 && (
+              <View style={styles.section}>
+                <Text variant="label" style={styles.sectionLabel}>
+                  something in {dropCount === 1 ? 'its' : 'their'} place? (optional)
+                </Text>
+                <Text variant="label" color={Colors.textTertiary} style={styles.benchHint}>
+                  dropped anchors make room. leave the slot open if nothing calls.
+                </Text>
+                <View style={styles.benchWrap}>
+                  {bench.map((b) => {
+                    const active = replacements.includes(b.suggestedId);
+                    return (
+                      <TouchableOpacity
+                        key={b.suggestedId}
+                        onPress={() => toggleReplacement(b.suggestedId)}
+                        style={[styles.pill, styles.benchPill, active && styles.benchPillActive]}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: active }}
+                      >
+                        <Text
+                          variant="label"
+                          color={active ? Colors.tealText : Colors.textTertiary}
+                          size={12}
+                        >
+                          {b.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             <View style={styles.section}>
               <Text variant="label" style={styles.sectionLabel}>anything else?</Text>
               <TextInput
@@ -170,7 +235,7 @@ export default function CycleReviewSheet({ visible, cycleNumber, onClose }: Prop
               stuck habits carry to the next cycle. willpower ones stay too — they're not automatic yet. dropped ones make room for something new.
             </Text>
 
-            <Button label="start cycle 2" onPress={handleConfirm} style={styles.button} />
+            <Button label={`start cycle ${cycleNumber + 1}`} onPress={handleConfirm} style={styles.button} />
             <TouchableOpacity onPress={onClose} accessibilityRole="button">
               <Text variant="label" color={Colors.textTertiary} style={styles.later}>
                 not yet — review later
@@ -265,6 +330,13 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   micro: { lineHeight: 20, fontSize: 12, color: Colors.textTertiary },
+  benchHint: { fontSize: 12, lineHeight: 18 },
+  benchWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  benchPill: { minHeight: 44, paddingVertical: 10, paddingHorizontal: 16 },
+  benchPillActive: {
+    borderColor: Colors.tealAction,
+    backgroundColor: `${Colors.tealAction}22`,
+  },
   button: { marginTop: 4 },
   later: { textAlign: 'center', paddingVertical: 12, marginTop: -4 },
 });

@@ -17,8 +17,9 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '@/constants/colors';
 import { initStorage } from '@/lib/storage';
-import { backfillDayPhase } from '@/lib/habits';
+import { backfillDayPhase, mergeWakeLightHabits } from '@/lib/habits';
 import { ensureCycleFields } from '@/lib/cycle';
+import { regeneratePersonalisedCopyOnce } from '@/lib/personalisedCopy';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -36,10 +37,14 @@ export default function RootLayout() {
 
   useEffect(() => {
     initStorage().then(() => {
-      // One-shot Huberman-migration backfills — idempotent, safe on every boot.
+      // One-shot migration backfills — idempotent, safe on every boot.
       backfillDayPhase();
       ensureCycleFields();
+      mergeWakeLightHabits();
       setStorageReady(true);
+      // Network call, fire-and-forget after render: refreshes stale AI copy
+      // once after the v9 prompt update (fetch-then-swap, retries next boot).
+      regeneratePersonalisedCopyOnce().catch(() => {});
     });
   }, []);
 
@@ -73,7 +78,6 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="falloff" options={{ animation: 'fade' }} />
-                <Stack.Screen name="unlock" options={{ animation: 'fade' }} />
                 <Stack.Screen name="reflection" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
               </Stack>
             </>

@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 import { getReflection, setReflection, getLogEntry } from '@/lib/storage';
 import { formatDate, logicalToday } from '@/lib/dayBoundary';
 
-const PHASE1_QUESTIONS = [
+const REFLECTION_QUESTIONS = [
   'Did I show up more days than not?',
   'How does my body feel compared to last Sunday?',
   'What\'s one small thing I want to do differently this week?',
@@ -60,7 +60,7 @@ function getBodyWordPattern(words: string[]): string | null {
 
 export default function ReflectionScreen() {
   const sundayKey = getSundayKey();
-  const questions = PHASE1_QUESTIONS; // Phase 1 only for Build Phase 1
+  const questions = REFLECTION_QUESTIONS;
   const [answers, setAnswers] = useState<string[]>(() => {
     const existing = getReflection(sundayKey);
     return existing?.answers ?? Array(questions.length).fill('');

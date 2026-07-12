@@ -18,21 +18,21 @@ interface HabitOption {
 }
 
 // Phase 1 · 0–8h post-wake (activation window)
-// Ordered by biological leverage. The first four are Huberman's protocol foundation.
+// Ordered by biological leverage. The suggested four are the circadian + nervous-system foundation.
 const PHASE_1_OPTIONS: HabitOption[] = [
   {
     id: 'wake-anchor',
-    label: 'wake time consistency',
+    label: 'wake ritual',
     dayPhase: 'phase1',
     suggested: true,
-    why: 'sets your master body clock. every other habit rides this one.',
+    why: 'same wake time, then light within 10 minutes. sets your master body clock — every other habit rides this one.',
   },
   {
     id: 'morning-light',
     label: 'morning light (10 min)',
     dayPhase: 'phase1',
-    suggested: true,
-    why: 'highest-leverage habit in the stack. sets cortisol and sleep 14h later.',
+    suggested: false,
+    why: 'already part of the wake ritual — pick this only if you want light tracked on its own.',
   },
   {
     id: 'water-before-coffee',
@@ -59,8 +59,8 @@ const PHASE_1_OPTIONS: HabitOption[] = [
     id: 'nervous-system-reset',
     label: 'breathwork (2 min)',
     dayPhase: 'phase1',
-    suggested: false,
-    why: 'cyclic sighing lowers cortisol fast. pick if you already practice.',
+    suggested: true,
+    why: 'cyclic sighing lowers cortisol fast. two minutes is enough.',
   },
 ];
 
@@ -69,10 +69,10 @@ const PHASE_1_OPTIONS: HabitOption[] = [
 const PHASE_2_OPTIONS: HabitOption[] = [
   {
     id: 'calorie-log',
-    label: 'capstone anchor',
+    label: 'north star anchor',
     dayPhase: 'phase2',
     suggested: true,
-    why: 'the one habit that directly serves your goal. rename to fit — log calories, log steps, log writing time.',
+    why: 'the one habit that directly serves your north star. rename it to fit the season.',
   },
   {
     id: 'evening-anchor',
@@ -176,11 +176,11 @@ export default function HabitsScreen() {
           <View style={styles.explainer}>
             <ExplainLine
               heading="phase 1 · 0–8h after waking"
-              body="cortisol, dopamine, and norepinephrine are elevated. hard habits ride this chemistry. the 4 suggested ones are the highest-leverage anchors from circadian + nervous system research — wake time sets the clock, light sets the day, delaying caffeine protects natural cortisol, and movement stacks BDNF."
+              body="cortisol, dopamine, and norepinephrine are elevated. hard habits ride this chemistry. the 4 suggested ones are the highest-leverage anchors from circadian + nervous system research — the wake ritual sets the clock and the day, delaying caffeine protects natural cortisol, movement stacks BDNF, and breathwork lowers cortisol fast."
             />
             <ExplainLine
               heading="phase 2 · 9–15h after waking"
-              body="serotonin rises, stress tapers. wind-down habits belong here. the 2 suggested ones are the capstone anchor (habit that serves your goal) and a compound wind-down (screens off + lights low + bedtime — one signal, not three)."
+              body="serotonin rises, stress tapers. wind-down habits belong here. the 2 suggested ones are the north star anchor (the habit that serves your goal) and a compound wind-down (screens off + lights low + bedtime — one signal, not three)."
             />
             <ExplainLine
               heading="21-day cycle"

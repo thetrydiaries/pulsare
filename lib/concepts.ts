@@ -28,7 +28,7 @@ export const CONCEPTS: Concept[] = [
     title: 'phase 1 vs phase 2',
     definition:
       'the first 8 hours after waking are your action window. the next 6 are your wind-down. matching habits to phase makes them 10x easier.',
-    body: `Andrew Huberman describes the day in phases based on your body's neurochemistry. Phase 1 is the first 0–8 hours after waking. Elevated cortisol, norepinephrine, and dopamine make this the window for hard habits — the ones that need willpower to start. Movement. Cold exposure. Focused work. The chemistry is on your side.\n\nPhase 2 is 9–15 hours after waking. Serotonin rises. Stress tapers. This is the window for low-friction habits — journaling, reading, reflection, wind-down. Habits that don't need willpower to start.\n\nStacking hard habits in phase 1 and soft ones in phase 2 is the difference between a protocol that runs on chemistry and one that runs on effort you don't have.`,
+    body: `Your day splits into phases set by your body's neurochemistry. Phase 1 is the first 0–8 hours after waking. Elevated cortisol, norepinephrine, and dopamine make this the window for hard habits — the ones that need willpower to start. Movement. Cold exposure. Focused work. The chemistry is on your side.\n\nPhase 2 is 9–15 hours after waking. Serotonin rises. Stress tapers. This is the window for low-friction habits — journaling, reading, reflection, wind-down. Habits that don't need willpower to start.\n\nStacking hard habits in phase 1 and soft ones in phase 2 is the difference between a protocol that runs on chemistry and one that runs on effort you don't have.`,
   },
   {
     key: 'task-bracketing',
@@ -52,11 +52,11 @@ export const CONCEPTS: Concept[] = [
     body: `The research on habit formation is misquoted constantly. It doesn't take 21 days to form a habit. What it does take is roughly 21 days of consistent practice before the neural pathway is efficient enough that you can stop deliberately tracking and see what your nervous system holds on to on its own.\n\nAt day 21, the protocol changes. You stop actively engaging with the six habits and observe which ones you naturally reach for. That's the signal. Anything that requires the tracker to remember is not yet automatic.\n\nAnything that runs without you thinking about it has moved from "protocol you follow" to "someone you're becoming." That's the transition worth waiting for.`,
   },
   {
-    key: 'capstone-vs-habit',
-    title: 'capstone vs habit',
+    key: 'north-star-vs-habit',
+    title: 'north star vs habit',
     definition:
-      "your capstone is the goal. your habits are the ladder. don't confuse the two — the goal isn't a checkbox and the habits aren't the point.",
-    body: `A capstone is the outcome you're building toward — weight loss, a book written, a business launched. It's the thing habits serve. It's not a habit itself, because it can't be done in a day.\n\nHabits are the daily behaviours that stack up to the capstone. They're binary — did or didn't. They live inside a single day. The distinction matters because most people confuse the two, and it costs them everything.\n\nIf your capstone is weight loss and your habit is "eat well," you'll fail. "Eat well" is a capstone-flavoured goal that can't be checked. If your habit is "log calories before wind-down," you have something that lives inside a day, runs on chemistry, and stacks into the capstone over time.\n\nGalaxy tracks both. Habits keep you present. Capstone measures direction.`,
+      "your north star is the why. your habits are the daily work. don't confuse the two — the direction isn't a checkbox and the habits aren't the point.",
+    body: `A north star is the direction you're building toward — a book written, a body you feel at home in, a business launched. It's the thing habits serve. It's not a habit itself, because it can't be done in a day, and it isn't a gauge — nothing about it gets measured or scored.\n\nHabits are the daily behaviours that point toward it. They're binary — did or didn't. They live inside a single day. The distinction matters because most people confuse the two, and it costs them everything.\n\nIf your north star is "get healthy" and your habit is "eat well," you'll stall. "Eat well" is direction-flavoured — it can't be checked. If your habit is "prep tomorrow's food before wind-down," you have something that lives inside a day, runs on chemistry, and quietly serves the north star over time.\n\nWe track presence — showing up is the whole job. The north star just tells you why you're showing up.`,
   },
   {
     key: 'never-miss-twice',
@@ -78,21 +78,28 @@ export function getConceptByKey(key: string): Concept | undefined {
   return CONCEPTS.find((c) => c.key === key);
 }
 
-// Bridge helper: current galaxy/learn code selects a concept by week number.
-// Until cycle-based logic lands (Step 7), map week → concept.
-const WEEK_TO_CONCEPT_KEY = [
-  'circadian-rhythm',       // week 1
-  'cortisol-awakening',     // week 2
-  'phase-1-vs-phase-2',     // week 3
-  'task-bracketing',        // week 4
-  'four-of-six-rule',       // week 5
-  'twenty-one-day-cycle',   // week 6
-  'never-miss-twice',       // week 7
-  'capstone-vs-habit',      // week 8
-  'identity-based-habits',  // week 9+
+// Concepts are paced by the 21-day cycle, not a parallel week counter.
+// Cycle 1 unlocks the foundations (~2 per week across the 21 days); the
+// deeper identity concepts land in cycle 2+.
+const CYCLE_SCHEDULE: { cycle: number; day: number; key: string }[] = [
+  { cycle: 1, day: 1, key: 'circadian-rhythm' },
+  { cycle: 1, day: 4, key: 'cortisol-awakening' },
+  { cycle: 1, day: 8, key: 'phase-1-vs-phase-2' },
+  { cycle: 1, day: 11, key: 'task-bracketing' },
+  { cycle: 1, day: 15, key: 'four-of-six-rule' },
+  { cycle: 1, day: 18, key: 'twenty-one-day-cycle' },
+  { cycle: 2, day: 1, key: 'north-star-vs-habit' },
+  { cycle: 2, day: 8, key: 'never-miss-twice' },
+  { cycle: 2, day: 15, key: 'identity-based-habits' },
 ];
 
-export function getConceptForWeek(weekNum: number): Concept {
-  const idx = Math.min(Math.max(weekNum - 1, 0), WEEK_TO_CONCEPT_KEY.length - 1);
-  return CONCEPTS.find((c) => c.key === WEEK_TO_CONCEPT_KEY[idx])!;
+/** The most recently unlocked concept for where she actually is in the cycle arc. */
+export function getConceptForCycle(cycleNumber: number, cycleDay: number): Concept {
+  let current = CYCLE_SCHEDULE[0];
+  for (const entry of CYCLE_SCHEDULE) {
+    if (cycleNumber > entry.cycle || (cycleNumber === entry.cycle && cycleDay >= entry.day)) {
+      current = entry;
+    }
+  }
+  return CONCEPTS.find((c) => c.key === current.key)!;
 }

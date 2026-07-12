@@ -8,12 +8,11 @@ import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import { storage } from '@/lib/storage';
 import { setUser, setOnboardingComplete } from '@/lib/storage';
-import { initHubermanHabits } from '@/lib/habits';
+import { seedHabits } from '@/lib/habits';
 import { scheduleAllNotifications, requestPermissions } from '@/lib/notifications';
 import { formatDate, addMinutes, subtractHours } from '@/lib/dayBoundary';
 import { generatePersonalisedCopy } from '@/lib/personalisedCopy';
-import { PROGRAM_LENGTH } from '@/lib/cycle';
-import type { User, EveningHabitType, Capstone, CapstoneType } from '@/types';
+import type { User, EveningHabitType, Capstone } from '@/types';
 
 function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number);
@@ -36,17 +35,7 @@ function loadSelectedHabits(): string[] {
 function loadCapstone(): Capstone | undefined {
   const goal = storage.getString('onboarding.capstone.goal');
   if (!goal) return undefined;
-  const type = (storage.getString('onboarding.capstone.type') as CapstoneType) ?? 'other';
-  const startValue = storage.getString('onboarding.capstone.startValue');
-  const targetValue = storage.getString('onboarding.capstone.targetValue');
-  const unit = storage.getString('onboarding.capstone.unit') ?? undefined;
-  return {
-    goal,
-    type,
-    startValue: startValue ? Number(startValue) : undefined,
-    targetValue: targetValue ? Number(targetValue) : undefined,
-    unit,
-  };
+  return { goal };
 }
 
 export default function HandoffScreen() {
@@ -62,8 +51,7 @@ export default function HandoffScreen() {
     const user: User = {
       name,
       startDate,
-      currentPhase: 1, // legacy — retired; kept for back-compat until Step 10
-      phaseUnlockState: 'active',
+      currentPhase: 1, // legacy — always 1 now; presence math still reads it
       wakeTime,
       movementType: storage.getString('onboarding.movement') ?? 'movement',
       breathworkExperience: (storage.getString('onboarding.breathworkExperience') ?? 'no') as 'yes' | 'no',
@@ -80,11 +68,10 @@ export default function HandoffScreen() {
       capstone,
       cycleStartDate: startDate,
       cycleNumber: 1,
-      programLength: PROGRAM_LENGTH,
     };
 
     setUser(user);
-    initHubermanHabits(user, selectedHabits);
+    seedHabits(user, selectedHabits);
 
     setOnboardingComplete();
 
@@ -119,7 +106,7 @@ export default function HandoffScreen() {
           <View style={styles.summary}>
             <SummaryRow label="wake at" value={formatTime(wakeTime)} />
             {capstone && (
-              <SummaryRow label="capstone" value={capstone.goal} />
+              <SummaryRow label="north star" value={capstone.goal} />
             )}
             <SummaryRow label="6 habits picked" value={`hit 4 = present`} />
             <SummaryRow label="wind-down" value={`from ${formatTime(windDown)}`} />

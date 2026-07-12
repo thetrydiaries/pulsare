@@ -16,8 +16,7 @@ import { getLogEntry, updateLogEntry, getUser } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
 import { recalculateStreak } from '@/lib/presence';
 import { parseDate } from '@/lib/dayBoundary';
-import { getDevPhaseOverride } from '@/lib/devMode';
-import type { Phase, Habit } from '@/types';
+import type { Habit } from '@/types';
 
 interface Props {
   date: string | null;
@@ -39,8 +38,7 @@ export default function PastDayEditSheet({ date, onClose }: Props) {
     if (!date) return;
     const user = getUser();
     if (!user) return;
-    const phase = (getDevPhaseOverride() ?? user.currentPhase) as Phase;
-    setHabits(getActiveHabits(phase));
+    setHabits(getActiveHabits());
     const entry = getLogEntry(date);
     setCompleted(entry?.habits ?? {});
     setBodyWord(entry?.bodyCheckWord ?? '');

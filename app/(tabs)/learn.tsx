@@ -15,7 +15,8 @@ import type { TechniqueKey } from '@/components/BreathworkGuide';
 import { getUser, getPersonalisedCopy, storage } from '@/lib/storage';
 import { getActiveHabits } from '@/lib/habits';
 import { getLogicalDate, logicalToday, parseDate, daysSinceStart } from '@/lib/dayBoundary';
-import { getConceptForWeek, getConceptByKey, CONCEPTS } from '@/lib/concepts';
+import { getConceptForCycle, getConceptByKey, CONCEPTS } from '@/lib/concepts';
+import { getCycleDay } from '@/lib/cycle';
 import type { Habit, User } from '@/types';
 
 // ─── Default habit learn content ─────────────────────────────────────────────
@@ -84,7 +85,7 @@ const HABIT_LEARN: Record<string, HabitLearnContent> = {
   nsdr: {
     reframe: 'ten minutes flat on the floor restores what a bad night broke',
     science:
-      'non-sleep deep rest (NSDR) is a directed, guided practice — sometimes called yoga nidra — that produces the brain-state effects of a nap without requiring sleep. it restores dopamine levels in the basal ganglia, reduces sympathetic arousal, and measurably improves next-hour focus. a 10-minute session in the mid-afternoon or early evening also reliably shortens sleep-onset latency at night. it is the highest-leverage rest intervention Huberman recommends.',
+      'non-sleep deep rest (NSDR) is a directed, guided practice — sometimes called yoga nidra — that produces the brain-state effects of a nap without requiring sleep. it restores dopamine levels in the basal ganglia, reduces sympathetic arousal, and measurably improves next-hour focus. a 10-minute session in the mid-afternoon or early evening also reliably shortens sleep-onset latency at night. it is one of the highest-leverage rest interventions available.',
   },
 };
 
@@ -94,19 +95,23 @@ interface BreathTechCard {
   key: TechniqueKey;
   name: string;
   purpose: string;
-  minWeek: number;
+  unlockLevel: number; // 1–3 — see getTechniqueLevel
 }
 
 const BREATH_TECHNIQUES: BreathTechCard[] = [
-  { key: 'physiological-sigh', name: 'physiological sigh', purpose: 'acute reset. the fastest way to shift your nervous system.', minWeek: 1 },
-  { key: 'cyclic-sigh', name: 'cyclic sighing', purpose: 'sustained vagus nerve activation. best after movement.', minWeek: 2 },
-  { key: 'box-breathing', name: 'box breathing', purpose: 'prefrontal cortex on. best before focused work.', minWeek: 3 },
+  { key: 'physiological-sigh', name: 'physiological sigh', purpose: 'acute reset. the fastest way to shift your nervous system.', unlockLevel: 1 },
+  { key: 'cyclic-sigh', name: 'cyclic sighing', purpose: 'sustained vagus nerve activation. best after movement.', unlockLevel: 2 },
+  { key: 'box-breathing', name: 'box breathing', purpose: 'prefrontal cortex on. best before focused work.', unlockLevel: 3 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getWeekNumber(startDate: string): number {
-  return Math.max(1, Math.ceil(daysSinceStart(startDate) / 7));
+/** Breathwork techniques unlock across cycle 1 (~1/week); cycle 2+ has all three. */
+function getTechniqueLevel(cycleNumber: number, cycleDay: number): number {
+  if (cycleNumber > 1) return 3;
+  if (cycleDay <= 7) return 1;
+  if (cycleDay <= 14) return 2;
+  return 3;
 }
 
 function getDaysUntilNextMonday(): number {
@@ -124,8 +129,8 @@ function getAnchoringStackStatements(): string[] {
   const windDownDisplay = `${dh}:${m.toString().padStart(2, '0')}${ampm}`;
 
   return [
-    'after my alarm, I go straight to morning light',
-    'after morning light, I drink water before coffee',
+    'after my alarm, I get light within 10 minutes',
+    'after light, I drink water — caffeine waits',
     `after water, I go for my ${movement}`,
     `after my walk, I do the sigh`,
     `at ${windDownDisplay}, I start ${eveningLabel}`,
@@ -140,11 +145,11 @@ interface AccordionRowProps {
   onToggle: (id: string) => void;
   onGuide?: (technique: TechniqueKey) => void;
   personalisedCopy: ReturnType<typeof getPersonalisedCopy>;
-  weekNum: number;
+  techLevel: number;
   eveningHabitType?: string;
 }
 
-function HabitAccordionRow({ habit, isOpen, onToggle, onGuide, personalisedCopy, weekNum, eveningHabitType }: AccordionRowProps) {
+function HabitAccordionRow({ habit, isOpen, onToggle, onGuide, personalisedCopy, techLevel, eveningHabitType }: AccordionRowProps) {
   const fadeAnim = useRef(new Animated.Value(isOpen ? 1 : 0)).current;
 
   useEffect(() => {
@@ -165,7 +170,7 @@ function HabitAccordionRow({ habit, isOpen, onToggle, onGuide, personalisedCopy,
   const displayLabel = habit.userLabel ?? habit.label;
 
   // Breathwork library — techniques unlocked so far
-  const unlockedTechniques = BREATH_TECHNIQUES.filter((t) => t.minWeek <= weekNum);
+  const unlockedTechniques = BREATH_TECHNIQUES.filter((t) => t.unlockLevel <= techLevel);
   const hasEveningBreathwork = eveningHabitType === 'breathwork';
 
   return (
@@ -302,10 +307,12 @@ export default function LearnScreen() {
 
   if (!user) return null;
 
-  const weekNum = getWeekNumber(user.startDate);
+  const cycleNumber = user.cycleNumber ?? 1;
+  const cycleDay = user.cycleStartDate ? getCycleDay(user.cycleStartDate) : 1;
+  const techLevel = getTechniqueLevel(cycleNumber, cycleDay);
   const currentConceptKey =
     (params.concept && getConceptByKey(params.concept)?.key) ??
-    getConceptForWeek(weekNum).key;
+    getConceptForCycle(cycleNumber, cycleDay).key;
   const activeConceptKey = openConceptKey ?? currentConceptKey;
   const anchoringStack = getAnchoringStackStatements();
 
@@ -326,7 +333,7 @@ export default function LearnScreen() {
               onToggle={handleToggle}
               onGuide={handleLibraryGuide}
               personalisedCopy={copy}
-              weekNum={weekNum}
+              techLevel={techLevel}
               eveningHabitType={user.eveningHabitType}
             />
           ))}
@@ -378,8 +385,8 @@ export default function LearnScreen() {
           })}
         </View>
 
-        {/* Section 3 — Anchoring stack (once habits established) */}
-        {weekNum >= 3 && (
+        {/* Section 3 — Anchoring stack (once habits established, ~day 15) */}
+        {(cycleNumber > 1 || cycleDay >= 15) && (
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionLabel}>your anchoring stack</Text>
             <View style={styles.divider} />

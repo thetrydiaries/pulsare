@@ -29,6 +29,7 @@ interface Props {
     notificationTime: string | null,
     reason: string | null,
   ) => void;
+  onPause?: () => void; // pause the habit being edited — history stays
 }
 
 function getDefaultNotifTime(group: 'morning' | 'evening'): string {
@@ -45,7 +46,7 @@ function getExistingCustomNotifHabit(excludeId?: string): Habit | null {
   ) ?? null;
 }
 
-export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onClose, onSave }: Props) {
+export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onClose, onSave, onPause }: Props) {
   const isEdit = !!editHabit;
   const isSystemEdit = isEdit && !editHabit?.isCustom;
 
@@ -224,6 +225,19 @@ export default function CustomHabitSheet({ visible, defaultGroup, editHabit, onC
               disabled={!name.trim()}
               style={styles.button}
             />
+
+            {isEdit && onPause && (
+              <TouchableOpacity
+                onPress={() => { onPause(); onClose(); }}
+                accessibilityRole="button"
+                accessibilityLabel="pause this anchor"
+                style={styles.pauseBtn}
+              >
+                <Text variant="label" color={Colors.textTertiary} style={styles.pauseText}>
+                  pause this anchor — it comes off your list, history stays. resume anytime from profile.
+                </Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -327,4 +341,14 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   button: { marginTop: 4 },
+  pauseBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  pauseText: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
 });

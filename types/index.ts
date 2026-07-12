@@ -1,10 +1,9 @@
 export type Phase = 1 | 2 | 3;
 export type HabitGroup = 'morning' | 'evening';
-export type DayPhase = 'phase1' | 'phase2'; // Huberman: phase 1 = 0–8h post-wake (hard), phase 2 = 9–15h (low friction)
+export type DayPhase = 'phase1' | 'phase2'; // phase 1 = 0–8h post-wake (hard), phase 2 = 9–15h (low friction)
 export type PhaseUnlockState = 'active' | 'pending' | 'dismissed';
 export type EveningHabitType = 'reading' | 'phone-off' | 'breathwork' | 'journalling' | 'custom';
 export type StarState = 'full' | 'partial' | 'missed' | 'return' | 'future';
-export type CapstoneType = 'weight' | 'other';
 
 export interface NotificationTimes {
   morning: string; // HH:MM
@@ -12,19 +11,23 @@ export interface NotificationTimes {
   windDown: string; // HH:MM
 }
 
+// The north star: a free-text direction for the season. No numbers, no
+// tracking — presence is what's scored. (Storage key stays `capstone` for
+// continuity; old stored objects may carry legacy fields — read `goal` only,
+// never crash on the rest.)
 export interface Capstone {
-  goal: string; // free-text label, e.g. "lose 15kg"
-  type: CapstoneType;
-  targetValue?: number; // kg for weight; unit implied by type
-  startValue?: number;  // starting weight at cycle 1 day 1
-  unit?: string;        // 'kg', 'lb', etc.
+  goal: string;
+  type?: string;        // legacy — unread
+  targetValue?: number; // legacy — unread
+  startValue?: number;  // legacy — unread
+  unit?: string;        // legacy — unread
 }
 
 export interface User {
   name: string;
   startDate: string; // YYYY-MM-DD — day 1 of the program (never reset)
-  currentPhase: Phase; // legacy — retired by Huberman migration, retained for back-compat until cleanup
-  phaseUnlockState: PhaseUnlockState; // legacy
+  currentPhase: Phase; // legacy — always 1; presence math still filters by it
+  phaseUnlockState?: PhaseUnlockState; // legacy — no longer written or read
   wakeTime: string; // HH:MM
   movementType: string;
   breathworkExperience: 'yes' | 'no';
@@ -35,11 +38,11 @@ export interface User {
   notificationTimes: NotificationTimes;
   startingMood: string;
   breathworkDefault?: 'physiological-sigh' | 'cyclic-sigh' | 'box-breathing' | 'rotating' | null;
-  // ─── Huberman × 75 Hard model ─────────────────────────────────────────────
+  // ─── Cycle model ──────────────────────────────────────────────────────────
   capstone?: Capstone;
   cycleStartDate?: string; // YYYY-MM-DD — day 1 of current 21-day cycle
   cycleNumber?: number;    // 1-based
-  programLength?: number;  // total arc, default 75
+  programLength?: number;  // legacy 75-day arc — no longer written or shown; kept readable for old data
 }
 
 export interface HabitLearnContent {
@@ -53,7 +56,7 @@ export interface Habit {
   userLabel?: string; // user-defined display name; overrides label everywhere it's shown
   microExplanation: string | null;
   learnContent?: HabitLearnContent; // AI-generated for custom habits
-  phase: Phase; // legacy — retired; superseded by dayPhase in Huberman migration
+  phase: Phase; // legacy — retired; superseded by dayPhase in cycle-model migration
   dayPhase?: DayPhase; // phase1 = morning window, phase2 = evening window
   group: HabitGroup;
   locked: boolean;
@@ -63,13 +66,6 @@ export interface Habit {
   createdAt: string; // ISO timestamp
   customNotificationTime?: string | null; // HH:MM — only on custom habits
   personalReason?: string | null; // "why does this matter to you" — drives Learn accordion body
-}
-
-export interface CapstoneEntry {
-  date: string;      // YYYY-MM-DD (Sunday of the week captured)
-  value?: number;    // weight or metric
-  photoUri?: string; // local URI (device-only, never uploaded)
-  note?: string;
 }
 
 export interface PersonalisedCopy {
@@ -132,7 +128,6 @@ export interface AppStorage {
   streakData: StreakData;
   weeklyReflections: Record<string, WeeklyReflection>;
   onboardingComplete: boolean;
-  capstoneLog: CapstoneEntry[];
   cycleReviews: Record<number, CycleReview>; // key = cycleNumber
 }
 

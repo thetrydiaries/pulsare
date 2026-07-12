@@ -20,14 +20,15 @@ import {
   updateUser,
   clearAllData,
   getHabits,
-  upsertHabit,
   exportAllData,
   importAllData,
 } from '@/lib/storage';
+import { setHabitActive } from '@/lib/habits';
 import {
   scheduleAllNotifications,
   requestPermissions,
   getPushStatus,
+  cancelCustomHabitNotification,
   type PushStatus,
 } from '@/lib/notifications';
 import { recalculateStreak } from '@/lib/presence';
@@ -45,8 +46,9 @@ const EVENING_OPTIONS = [
 
 export default function ProfileScreen() {
   const [user, setUserState] = useState<User | null>(null);
-  const [customHabits, setCustomHabits] = useState<Habit[]>([]);
+  const [anchorList, setAnchorList] = useState<Habit[]>([]);
   const [editingEvening, setEditingEvening] = useState(false);
+  const [northStarDraft, setNorthStarDraft] = useState('');
   const [pushStatus, setPushStatus] = useState<PushStatus>(() => getPushStatus());
 
   // Dev mode state
@@ -62,8 +64,8 @@ export default function ProfileScreen() {
     useCallback(() => {
       const u = getUser();
       setUserState(u);
-      const allHabits = Object.values(getHabits()).filter((h) => h.isCustom && h.active);
-      setCustomHabits(allHabits);
+      setNorthStarDraft(u?.capstone?.goal ?? '');
+      loadAnchors();
       setDevPhaseLocal(getDevPhaseOverride());
     }, [])
   );
@@ -91,6 +93,19 @@ export default function ProfileScreen() {
     await scheduleAllNotifications(updated);
   }
 
+  function saveNorthStar() {
+    if (!user) return;
+    const goal = northStarDraft.trim();
+    if (!goal || goal === user.capstone?.goal) {
+      setNorthStarDraft(user.capstone?.goal ?? '');
+      return;
+    }
+    // Storage key stays `capstone` for continuity; legacy fields are dropped
+    // on rewrite — the goal text is the whole north star now.
+    updateUser({ capstone: { goal } });
+    setUserState({ ...user, capstone: { goal } });
+  }
+
   function selectEveningHabit(type: typeof EVENING_OPTIONS[0]['type'], label: string) {
     if (!user) return;
     updateUser({ eveningHabitType: type, eveningHabitLabel: label });
@@ -98,27 +113,25 @@ export default function ProfileScreen() {
     setEditingEvening(false);
   }
 
-  // ─── Custom habit removal ─────────────────────────────────────────────────
+  // ─── Anchor pause / resume ────────────────────────────────────────────────
+  // Every anchor (system or custom) can be paused and resumed here. Logs are
+  // untouched — history keeps counting.
 
-  function handleRemoveCustomHabit(habitId: string, habitLabel: string) {
-    Alert.alert(
-      `remove ${habitLabel}?`,
-      '',
-      [
-        { text: 'keep it', style: 'cancel' },
-        {
-          text: 'yes, remove it',
-          onPress: () => {
-            const habits = getHabits();
-            const habit = habits[habitId];
-            if (habit) {
-              upsertHabit({ ...habit, active: false });
-              setCustomHabits((prev) => prev.filter((h) => h.id !== habitId));
-            }
-          },
-        },
-      ]
-    );
+  function loadAnchors() {
+    const all = Object.values(getHabits()).sort((a, b) => {
+      if (a.active !== b.active) return a.active ? -1 : 1; // active first
+      if (a.group !== b.group) return a.group === 'morning' ? -1 : 1;
+      return 0;
+    });
+    setAnchorList(all);
+  }
+
+  function handleToggleAnchor(habit: Habit) {
+    if (habit.active && habit.customNotificationTime) {
+      cancelCustomHabitNotification().catch(() => {});
+    }
+    setHabitActive(habit.id, !habit.active);
+    loadAnchors();
   }
 
   // ─── Dev mode ─────────────────────────────────────────────────────────────
@@ -248,10 +261,6 @@ export default function ProfileScreen() {
     );
   }
 
-  const phaseLabel = `phase ${user.currentPhase} · ${
-    user.currentPhase === 1 ? 'stabilise' : user.currentPhase === 2 ? 'build' : 'raise the stakes'
-  }`;
-
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -299,22 +308,30 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {/* Custom habits */}
-          {customHabits.map((habit) => {
+          {/* All anchors — pause / resume */}
+          {anchorList.map((habit) => {
             const label = habit.userLabel ?? habit.label;
             return (
               <View key={habit.id}>
                 <Divider />
                 <Row label={habit.group}>
                   <View style={styles.customHabitRight}>
-                    <Text variant="body" color={Colors.textSecondary} size={14}>{label}</Text>
+                    <Text
+                      variant="body"
+                      color={habit.active ? Colors.textSecondary : Colors.textTertiary}
+                      size={14}
+                    >
+                      {label}
+                    </Text>
                     <TouchableOpacity
-                      onPress={() => handleRemoveCustomHabit(habit.id, label)}
+                      onPress={() => handleToggleAnchor(habit)}
                       accessibilityRole="button"
-                      accessibilityLabel={`remove ${label}`}
+                      accessibilityLabel={habit.active ? `pause ${label}` : `resume ${label}`}
                       style={styles.removeBtn}
                     >
-                      <Text variant="label" color={Colors.textTertiary} size={12}>remove</Text>
+                      <Text variant="label" color={habit.active ? Colors.textTertiary : Colors.tealText} size={12}>
+                        {habit.active ? 'pause' : 'resume'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </Row>
@@ -384,15 +401,29 @@ export default function ProfileScreen() {
 
         {/* Your reset */}
         <Section title="your reset">
+          <View style={styles.northStarBlock}>
+            <Text variant="bodyLight" style={styles.northStarLabel}>north star</Text>
+            <TextInput
+              style={styles.northStarInput}
+              value={northStarDraft}
+              onChangeText={setNorthStarDraft}
+              onBlur={saveNorthStar}
+              onSubmitEditing={saveNorthStar}
+              placeholder="what this season is building toward"
+              placeholderTextColor={Colors.textTertiary}
+              multiline
+              returnKeyType="done"
+              blurOnSubmit
+              accessibilityLabel="edit your north star"
+            />
+            <Text variant="label" color={Colors.textTertiary} style={styles.northStarHint}>
+              seasons change. rewrite it when it does.
+            </Text>
+          </View>
+          <Divider />
           <Row label="started">
             <Text variant="body" color={Colors.textSecondary} size={14}>
               {user.startDate}
-            </Text>
-          </Row>
-          <Divider />
-          <Row label="current phase">
-            <Text variant="body" color={Colors.textSecondary} size={14}>
-              {phaseLabel}
             </Text>
           </Row>
         </Section>
@@ -601,6 +632,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  northStarBlock: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  northStarLabel: {},
+  northStarInput: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 16, // ≥16 — iOS Safari zooms on focus below this
+    color: Colors.textPrimary,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+    paddingVertical: 6,
+    textAlignVertical: 'top',
+  },
+  northStarHint: { fontSize: 11, lineHeight: 16 },
   removeBtn: {
     minWidth: 44,
     minHeight: 44,

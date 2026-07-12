@@ -15,7 +15,6 @@ import Text from '@/components/ui/Text';
 import HabitRow from '@/components/habits/HabitRow';
 import WeekStrip from '@/components/habits/WeekStrip';
 import CustomHabitSheet from '@/components/CustomHabitSheet';
-import CapstoneCheckInSheet from '@/components/CapstoneCheckInSheet';
 import PastDayEditSheet from '@/components/PastDayEditSheet';
 import BreathworkGuide from '@/components/BreathworkGuide';
 import type { TechniqueKey } from '@/components/BreathworkGuide';
@@ -24,8 +23,8 @@ import {
   getUser, getLogEntry, updateLogEntry, getPersonalisedCopy,
   getHabits, upsertHabit, setPersonalisedCopy, updateUser,
 } from '@/lib/storage';
-import { getPendingUnlock, getProjectTease, markBeatShown } from '@/lib/progression';
-import { getActiveHabits, addCustomHabit, editCustomHabit } from '@/lib/habits';
+import { getProjectTease, markBeatShown } from '@/lib/progression';
+import { getActiveHabits, addCustomHabit, editCustomHabit, getPresenceThreshold } from '@/lib/habits';
 import { generateCustomHabitLearnContent } from '@/lib/customHabitLearn';
 import {
   getLogicalDate, logicalToday, formatDate, timeIsAtOrAfter, currentTime, subtractHours,
@@ -33,7 +32,7 @@ import {
 import {
   getRangeStats, recalculateStreak, isFallOff, isMissedOneDayOnly, getPresentDaysCount,
 } from '@/lib/presence';
-import { getCycleDay, getProgramDay, CYCLE_LENGTH, PROGRAM_LENGTH } from '@/lib/cycle';
+import { getCycleDay, CYCLE_LENGTH } from '@/lib/cycle';
 import { getStreakData } from '@/lib/storage';
 import { scheduleNeverMissTwiceNudge, scheduleCustomHabitNotification, cancelCustomHabitNotification, syncPush } from '@/lib/notifications';
 import { daysSinceStart } from '@/lib/dayBoundary';
@@ -63,7 +62,7 @@ function getGreeting(): string {
 const MILESTONE_FALLBACKS: Record<string, string> = {
   day3: 'three days. something has started.',
   day7: 'one week. the anchor is holding.',
-  day21: 'three weeks. that\'s neuroplasticity.',
+  day21: 'three weeks. now we see what your body kept.',
 };
 
 function getPersonalisedGreeting(userName: string, startDate: string): string {
@@ -96,13 +95,11 @@ function getPersonalisedGreeting(userName: string, startDate: string): string {
   return `${getGreeting()}, ${userName}.`;
 }
 
-function getWeekNumber(startDate: string): number {
-  return Math.max(1, Math.ceil(daysSinceStart(startDate) / 7));
-}
-
-function getCurrentTechnique(weekNum: number): TechniqueKey {
-  if (weekNum <= 1) return 'physiological-sigh';
-  if (weekNum <= 2) return 'cyclic-sigh';
+// Breathwork technique paces across cycle 1; cycle 2+ settles on box breathing.
+function getCurrentTechnique(cycleNumber: number, cycleDay: number): TechniqueKey {
+  if (cycleNumber > 1) return 'box-breathing';
+  if (cycleDay <= 7) return 'physiological-sigh';
+  if (cycleDay <= 14) return 'cyclic-sigh';
   return 'box-breathing';
 }
 
@@ -146,7 +143,6 @@ export default function HomeScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetGroup, setSheetGroup] = useState<'morning' | 'evening'>('morning');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-  const [capstoneSheetOpen, setCapstoneSheetOpen] = useState(false);
   const [editDate, setEditDate] = useState<string | null>(null);
   const [guideVisible, setGuideVisible] = useState(false);
   const [guideTechnique, setGuideTechnique] = useState<TechniqueKey>('physiological-sigh');
@@ -164,15 +160,6 @@ export default function HomeScreen() {
     const todayEntry = getLogEntry(currentToday);
     if (isFallOff() && !todayEntry?.isReturnDay) {
       router.replace('/falloff');
-      return;
-    }
-
-    // A phase unlock is due — hand off to the full-screen unlock moment.
-    // (If she were mid-lapse the falloff redirect above would have run first,
-    // so the unlock naturally waits and fires on her return day instead.)
-    const pendingPhase = getPendingUnlock();
-    if (pendingPhase) {
-      router.replace({ pathname: '/unlock', params: { phase: String(pendingPhase) } });
       return;
     }
 
@@ -205,8 +192,8 @@ export default function HomeScreen() {
     setIsSunday(logicalToday().getDay() === 0);
 
     // Determine current breathwork technique
-    const weekNum = getWeekNumber(user.startDate);
-    setGuideTechnique(getCurrentTechnique(weekNum));
+    const currentCycleDay = user.cycleStartDate ? getCycleDay(user.cycleStartDate) : 1;
+    setGuideTechnique(getCurrentTechnique(user.cycleNumber ?? 1, currentCycleDay));
   }, []);
 
   useEffect(() => {
@@ -346,10 +333,8 @@ export default function HomeScreen() {
   const presentDays = getPresentDaysCount(user.startDate);
   const greeting = getPersonalisedGreeting(user.name, user.startDate);
 
-  const weekNum = getWeekNumber(user.startDate);
   const cycleNumber = user.cycleNumber ?? 1;
   const cycleDay = user.cycleStartDate ? getCycleDay(user.cycleStartDate) : 1;
-  const programDay = getProgramDay(user.startDate);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -368,9 +353,6 @@ export default function HomeScreen() {
               <Text variant="label" color={Colors.tealText}>
                 cycle {cycleNumber} · day {cycleDay} of {CYCLE_LENGTH}
               </Text>
-              <Text variant="label" color={Colors.textTertiary} style={styles.weekLayerLabel}>
-                {programDay <= PROGRAM_LENGTH ? `day ${programDay} of ${PROGRAM_LENGTH}` : 'integration'}
-              </Text>
             </View>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/profile')}
@@ -384,15 +366,10 @@ export default function HomeScreen() {
         </View>
 
         {user.capstone && (
-          <TouchableOpacity
-            style={styles.capstoneStrip}
-            onPress={() => setCapstoneSheetOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="log this week's capstone"
-          >
-            <Text variant="label" color={Colors.textTertiary} style={styles.capstoneLabel}>capstone</Text>
+          <View style={styles.capstoneStrip}>
+            <Text variant="label" color={Colors.textTertiary} style={styles.capstoneLabel}>north star</Text>
             <Text variant="label" color={Colors.textSecondary} style={styles.capstoneGoal}>{user.capstone.goal}</Text>
-          </TouchableOpacity>
+          </View>
         )}
 
         {/* Greeting */}
@@ -417,7 +394,7 @@ export default function HomeScreen() {
         <View style={styles.presenceBlock}>
           <Text variant="serif" size={40}>{presentDays}</Text>
           <Text variant="label" style={styles.presenceLabel}>
-            days present · 4 of 6 = present
+            days present · {getPresenceThreshold(habits.length)} of {habits.length} = present
           </Text>
         </View>
 
@@ -528,6 +505,7 @@ export default function HomeScreen() {
         editHabit={editingHabit}
         onClose={() => { setSheetVisible(false); setEditingHabit(null); }}
         onSave={handleSaveHabit}
+        onPause={editingHabit ? () => handleRemoveHabit(editingHabit.id) : undefined}
       />
 
       <PastDayEditSheet
@@ -540,11 +518,6 @@ export default function HomeScreen() {
         technique={guideTechnique}
         onDismiss={() => setGuideVisible(false)}
         onComplete={handleBreathworkComplete}
-      />
-
-      <CapstoneCheckInSheet
-        visible={capstoneSheetOpen}
-        onClose={() => setCapstoneSheetOpen(false)}
       />
     </SafeAreaView>
   );

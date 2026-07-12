@@ -23,6 +23,18 @@ Habit tracking app. Expo / React Native, shipped as a **PWA** — Shirley uses i
 
 Never say "done" until step 3 succeeded and you've told her step 4.
 
+## Product guardrails (resolve every judgment call toward these)
+1. **Track presence, never output.** A day you showed up counts. No outcome is scored.
+2. **Brain you have, not the brain you want.** Reduce initiation cost. Fewer decisions before the first action.
+3. **Calm, warm, non-judgmental. Never loud, never gamified into pressure.**
+4. **Science surfaced briefly, contextually — never as a lecture.** Depth lives in Learn, opt-in.
+5. **The voice is ours.** No borrowed influencer or challenge branding, ever.
+6. **Scientifically accurate where possible.** An honest, softer claim beats a punchy, overstated one.
+
+Hard rules:
+- Never introduce named influencer/challenge branding (Huberman, 75 Hard, Atomic Habits, etc.) into user-facing copy. The science is stated in our own voice.
+- Never add outcome/number tracking. Pulsare tracks presence. If a feature scores an outcome, it's out of brand — flag it instead of building it.
+
 ## Rules
 - UI work: plan first, get approval before building. No unreviewed visual rewrites.
 - Work on main unless told otherwise. At session start, check `git status` and flag any unmerged branches or unpushed commits before starting new work.
