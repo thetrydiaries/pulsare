@@ -24,6 +24,7 @@ const COMPLETION_FALLBACKS: Record<string, string> = {
   'evening-anchor': 'you ended the day with intention.',
   'phone-off-reading': 'melatonin, uninterrupted.',
   nsdr: 'dopamine restored.',
+  'project-hour': 'the needle moved.',
 };
 
 interface Props {
@@ -57,6 +58,7 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
   }, [completed, fillAnim]);
 
   const displayLabel = habit.userLabel ?? habit.label;
+  const subtext = habit.personalReason ?? habit.microExplanation;
 
   function getAckText(): string {
     const suggestedId = habit.suggestedId ?? '';
@@ -151,6 +153,16 @@ export default function HabitRow({ habit, completed, nudge = false, onToggle, on
           </Text>
           <View style={styles.learnDot} />
         </View>
+        {!!subtext && (
+          <Text
+            variant="label"
+            color={Colors.textTertiary}
+            style={styles.subtext}
+            numberOfLines={2}
+          >
+            {subtext}
+          </Text>
+        )}
         {showActions && (
           <View style={styles.actionsRow}>
             {onEdit && (
@@ -248,6 +260,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
+    flexShrink: 1, // long custom labels wrap instead of pushing the dot off-screen
+  },
+  subtext: {
+    fontSize: 11,
+    lineHeight: 15,
+    opacity: 0.8,
   },
   learnDot: {
     width: 2,

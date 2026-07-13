@@ -7,7 +7,7 @@ import { getHabits, upsertHabit, setHabits, storage } from './storage';
 
 export const MICRO_EXPLANATIONS: Record<string, string> = {
   'wake-anchor':
-    'same wake time, then light within 10 minutes. this sets your body clock for the whole day.',
+    'feet on floor, light within 10 minutes, water before coffee. the ritual counts, not the clock — woke late? run it anyway.',
   'morning-light':
     'bright light within 30 minutes of waking sets your circadian clock for the whole day.',
   'water-before-coffee':
@@ -17,7 +17,9 @@ export const MICRO_EXPLANATIONS: Record<string, string> = {
   'nervous-system-reset':
     'the exhale activates your vagus nerve. two minutes is enough.',
   'consistent-bedtime':
-    'your sleep window matters as much as its length. your body clock is listening.',
+    'your sleep window matters as much as its length. within 30 minutes of target counts.',
+  'evening-anchor':
+    'screens off, lights low, into bed. within 30 minutes of target still counts.',
   breakfast:
     'eating within 90 min of waking supports cortisol regulation and blood sugar stability.',
   'morning-pages':
@@ -164,7 +166,7 @@ export function mergeWakeLightHabits(): void {
   storage.set(WAKE_LIGHT_MERGE_FLAG, true);
 }
 
-// ─── Onboarding seed: instantiate the 6 habits picked in onboarding ─────────
+// ─── Onboarding seed: instantiate the habits picked in onboarding ───────────
 
 const HABIT_LABELS: Record<string, string> = {
   'wake-anchor': 'wake ritual',
@@ -173,11 +175,12 @@ const HABIT_LABELS: Record<string, string> = {
   'morning-movement': 'movement',
   breakfast: 'protein-first breakfast',
   'nervous-system-reset': 'breathwork',
+  'project-hour': 'move the needle (30 min)',
   'calorie-log': 'north star anchor',
   'evening-journal': 'journal (3 sentences)',
   'evening-anchor': 'wind-down ritual',
   'consistent-bedtime': 'consistent bedtime',
-  'phone-off-reading': 'read fiction',
+  'phone-off-reading': 'read (10 min)',
   nsdr: 'nsdr / yoga nidra',
 };
 
@@ -188,6 +191,7 @@ const HABIT_GROUP: Record<string, HabitGroup> = {
   'morning-movement': 'morning',
   breakfast: 'morning',
   'nervous-system-reset': 'morning',
+  'project-hour': 'morning',
   'calorie-log': 'evening',
   'evening-journal': 'evening',
   'evening-anchor': 'evening',
@@ -196,17 +200,56 @@ const HABIT_GROUP: Record<string, HabitGroup> = {
   nsdr: 'evening',
 };
 
+/** A user-authored habit created inside the onboarding picker. */
+export interface CustomSeed {
+  label: string;
+  dayPhase: DayPhase;
+  reason?: string | null;
+}
+
 /**
  * Seed habits from the onboarding picker. Replaces the old phase-1/2/3
  * progression seed; every selected habit is active immediately. Nothing is
  * locked — every anchor can be renamed, paused, or swapped.
+ * `renames` maps suggestedId → user-chosen display name; `customs` are
+ * habits typed by the user during onboarding.
  */
-export function seedHabits(user: User, selectedIds: string[]): void {
+export function seedHabits(
+  user: User,
+  selectedIds: string[],
+  renames: Record<string, string> = {},
+  customs: CustomSeed[] = [],
+): void {
   const habits: Record<string, Habit> = {};
   for (const id of selectedIds) {
     const label = resolveSeedLabel(id, user);
     const group = HABIT_GROUP[id] ?? 'morning';
     const habit = makeHabit(id, label, 1, group, false);
+    const rename = renames[id]?.trim();
+    if (rename) habit.userLabel = rename;
+    habits[habit.id] = habit;
+  }
+  for (const custom of customs) {
+    // Storage may hold malformed entries (corrupted write, manual JSON restore) —
+    // skip anything that isn't shaped right rather than crashing handoff.
+    if (!custom || typeof custom.label !== 'string') continue;
+    const label = custom.label.trim();
+    if (!label) continue;
+    const dayPhase: DayPhase = custom.dayPhase === 'phase1' ? 'phase1' : 'phase2';
+    const habit: Habit = {
+      id: `habit_${uuidv4()}`,
+      label,
+      microExplanation: null,
+      phase: 1,
+      dayPhase,
+      group: dayPhase === 'phase1' ? 'morning' : 'evening',
+      locked: false,
+      isCustom: true,
+      suggestedId: null,
+      active: true,
+      createdAt: new Date().toISOString(),
+      personalReason: typeof custom.reason === 'string' ? custom.reason.trim() || null : null,
+    };
     habits[habit.id] = habit;
   }
   setHabits(habits);
@@ -308,7 +351,7 @@ export function getRevealedHabits(habits: Habit[], dayNumber: number): Habit[] {
 
 // ─── Presence threshold ──────────────────────────────────────────────────────
 
-// 4-of-6 rule: present = 4 habits/day. Clamps when someone has fewer than 4
+// Rule of 4: present = 4 habits/day, whatever the total picked. Clamps when someone has fewer than 4
 // active habits (rare mid-migration state) so partial setups still work.
 // INTENTIONAL: the target stays 4 no matter how many habits are active —
 // adding habits must never raise the bar to be "present". That's engineered

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -7,6 +7,7 @@ import Text from '@/components/ui/Text';
 import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import { storage, setOnboardingLastScreen } from '@/lib/storage';
+import type { CustomSeed } from '@/lib/habits';
 import type { DayPhase } from '@/types';
 
 interface HabitOption {
@@ -25,7 +26,7 @@ const PHASE_1_OPTIONS: HabitOption[] = [
     label: 'wake ritual',
     dayPhase: 'phase1',
     suggested: true,
-    why: 'same wake time, then light within 10 minutes. sets your master body clock — every other habit rides this one.',
+    why: 'feet on floor, light within 10 minutes, water before coffee. the ritual counts, not the clock — woke late? run it anyway. the wake time comes back through tonight\'s wind-down.',
   },
   {
     id: 'morning-light',
@@ -47,6 +48,13 @@ const PHASE_1_OPTIONS: HabitOption[] = [
     dayPhase: 'phase1',
     suggested: true,
     why: 'BDNF, dopamine, activation. outdoors doubles as morning-light.',
+  },
+  {
+    id: 'project-hour',
+    label: 'move the needle (30 min)',
+    dayPhase: 'phase1',
+    suggested: false,
+    why: 'creative or upskill practice — but name the project. a habit that starts with "decide which project" dies first. rename this tile to the actual thing, swap it at your 21-day review.',
   },
   {
     id: 'breakfast',
@@ -72,14 +80,14 @@ const PHASE_2_OPTIONS: HabitOption[] = [
     label: 'north star anchor',
     dayPhase: 'phase2',
     suggested: true,
-    why: 'the one habit that directly serves your north star. rename it to fit the season.',
+    why: 'the one habit that directly serves your north star. rename it to the actual action — "track calories", "prep tomorrow\'s food" — whatever this season needs.',
   },
   {
     id: 'evening-anchor',
     label: 'wind-down ritual',
     dayPhase: 'phase2',
     suggested: true,
-    why: 'screens off + lights low + same bedtime. one signal, not three. sleep quality depends on it.',
+    why: 'screens off + lights low + into bed. one signal, not three. within 30 minutes of your target still counts — this is the only clock in the whole system, and you get a fresh shot at it every night.',
   },
   {
     id: 'evening-journal',
@@ -97,16 +105,20 @@ const PHASE_2_OPTIONS: HabitOption[] = [
   },
   {
     id: 'phone-off-reading',
-    label: 'read fiction (10 min)',
+    label: 'read (10 min)',
     dayPhase: 'phase2',
     suggested: false,
-    why: 'lowers cortisol measurably. displaces the scroll.',
+    why: 'fiction lowers cortisol measurably. displaces the scroll — and doubles as the way you get to bed on time.',
   },
 ];
 
-const TARGET_PHASE_1 = 4;
-const TARGET_PHASE_2 = 2;
-const TOTAL_TARGET = TARGET_PHASE_1 + TARGET_PHASE_2;
+const MIN_HABITS = 4;
+const MAX_HABITS = 8;
+const SUGGESTED_COUNT = 6;
+
+interface LocalCustom extends CustomSeed {
+  key: string; // local list key
+}
 
 function loadSelected(): string[] {
   const raw = storage.getString('onboarding.selectedHabits');
@@ -117,19 +129,45 @@ function loadSelected(): string[] {
     } catch {}
   }
   return [
-    ...PHASE_1_OPTIONS.filter((h) => h.suggested).map((h) => h.id).slice(0, TARGET_PHASE_1),
-    ...PHASE_2_OPTIONS.filter((h) => h.suggested).map((h) => h.id).slice(0, TARGET_PHASE_2),
+    ...PHASE_1_OPTIONS.filter((h) => h.suggested).map((h) => h.id),
+    ...PHASE_2_OPTIONS.filter((h) => h.suggested).map((h) => h.id),
   ];
+}
+
+function loadRenames(): Record<string, string> {
+  const raw = storage.getString('onboarding.habitRenames');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed as Record<string, string>;
+    } catch {}
+  }
+  return {};
+}
+
+function loadCustoms(): LocalCustom[] {
+  const raw = storage.getString('onboarding.customHabits');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as CustomSeed[];
+      if (Array.isArray(parsed)) {
+        return parsed.map((c, i) => ({ ...c, key: `saved_${i}` }));
+      }
+    } catch {}
+  }
+  return [];
 }
 
 export default function HabitsScreen() {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(loadSelected()));
+  const [renames, setRenames] = useState<Record<string, string>>(() => loadRenames());
+  const [customs, setCustoms] = useState<LocalCustom[]>(() => loadCustoms());
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
-  const p1Count = PHASE_1_OPTIONS.filter((o) => selected.has(o.id)).length;
-  const p2Count = PHASE_2_OPTIONS.filter((o) => selected.has(o.id)).length;
-  const total = selected.size;
-  const isValid = total === TOTAL_TARGET && p1Count === TARGET_PHASE_1 && p2Count === TARGET_PHASE_2;
+  const total = selected.size + customs.length;
+  const isValid = total >= MIN_HABITS && total <= MAX_HABITS;
+  const atCap = total >= MAX_HABITS;
 
   function toggle(opt: HabitOption) {
     setSelected((prev) => {
@@ -138,25 +176,54 @@ export default function HabitsScreen() {
         next.delete(opt.id);
         return next;
       }
-      const phaseOptions = opt.dayPhase === 'phase1' ? PHASE_1_OPTIONS : PHASE_2_OPTIONS;
-      const cap = opt.dayPhase === 'phase1' ? TARGET_PHASE_1 : TARGET_PHASE_2;
-      const currentPhaseSelected = phaseOptions.filter((o) => next.has(o.id));
-      if (currentPhaseSelected.length >= cap) {
-        const evictable =
-          currentPhaseSelected.find((o) => !o.suggested) ?? currentPhaseSelected[currentPhaseSelected.length - 1];
-        next.delete(evictable.id);
-      }
+      if (next.size + customs.length >= MAX_HABITS) return prev;
       next.add(opt.id);
       return next;
     });
   }
 
+  function setRename(id: string, name: string) {
+    setRenames((prev) => {
+      const next = { ...prev };
+      const trimmed = name.trim();
+      if (trimmed) next[id] = trimmed;
+      else delete next[id];
+      return next;
+    });
+  }
+
+  function addCustom(dayPhase: DayPhase, label: string, reason: string): boolean {
+    const trimmed = label.trim();
+    if (!trimmed || atCap) return false;
+    setCustoms((prev) => [
+      ...prev,
+      { key: `new_${Date.now()}`, label: trimmed, dayPhase, reason: reason.trim() || null },
+    ]);
+    return true;
+  }
+
+  function removeCustom(key: string) {
+    setCustoms((prev) => prev.filter((c) => c.key !== key));
+  }
+
   function handleNext() {
     if (!isValid) return;
     storage.set('onboarding.selectedHabits', JSON.stringify(Array.from(selected)));
+    storage.set('onboarding.habitRenames', JSON.stringify(renames));
+    storage.set(
+      'onboarding.customHabits',
+      JSON.stringify(customs.map(({ label, dayPhase, reason }) => ({ label, dayPhase, reason }))),
+    );
     setOnboardingLastScreen(4);
     router.push('/onboarding/notifications');
   }
+
+  const p1Count =
+    PHASE_1_OPTIONS.filter((o) => selected.has(o.id)).length +
+    customs.filter((c) => c.dayPhase === 'phase1').length;
+  const p2Count =
+    PHASE_2_OPTIONS.filter((o) => selected.has(o.id)).length +
+    customs.filter((c) => c.dayPhase === 'phase2').length;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -169,7 +236,7 @@ export default function HabitsScreen() {
 
         <View style={styles.content}>
           <Text variant="serif" size={26} style={styles.question}>
-            pick your 6 habits
+            pick your habits
           </Text>
 
           {/* Explainer — placed at top so context lands before the picker */}
@@ -187,34 +254,58 @@ export default function HabitsScreen() {
               body="not when the habit is 'formed'. when you stop tracking and see what your body holds on its own. day 21 = review. some carry forward, some drop, some get swapped. three cycles = 63 days = deep."
             />
             <ExplainLine
-              heading="the 4-of-6 rule"
-              body="you don't need all 6 every day. 4 = present. that's the whole point — a day where you did enough is a day that counts."
+              heading="the rule of 4"
+              body="you don't need every habit every day. 4 = present, whatever your total. that's the whole point — a day where you did enough is a day that counts."
             />
           </View>
 
           <Text variant="label" style={styles.pickPrompt}>
-            {TARGET_PHASE_1} morning · {TARGET_PHASE_2} evening. tap "why this one?" on any tile.
+            we suggest {SUGGESTED_COUNT} — pick at least {MIN_HABITS}, up to {MAX_HABITS}. anything missing? add your own. tap "why this one?" on any tile.
           </Text>
 
           <HabitGroup
             title="phase 1 — morning window"
-            hint={`${p1Count} of ${TARGET_PHASE_1}`}
+            hint={`${p1Count} picked`}
+            dayPhase="phase1"
             options={PHASE_1_OPTIONS}
             selected={selected}
+            renames={renames}
+            customs={customs}
             expandedId={expandedId}
+            renamingId={renamingId}
+            atCap={atCap}
             onExpand={setExpandedId}
             onToggle={toggle}
+            onRename={setRename}
+            onStartRename={setRenamingId}
+            onAddCustom={addCustom}
+            onRemoveCustom={removeCustom}
           />
 
           <HabitGroup
             title="phase 2 — evening window"
-            hint={`${p2Count} of ${TARGET_PHASE_2}`}
+            hint={`${p2Count} picked`}
+            dayPhase="phase2"
             options={PHASE_2_OPTIONS}
             selected={selected}
+            renames={renames}
+            customs={customs}
             expandedId={expandedId}
+            renamingId={renamingId}
+            atCap={atCap}
             onExpand={setExpandedId}
             onToggle={toggle}
+            onRename={setRename}
+            onStartRename={setRenamingId}
+            onAddCustom={addCustom}
+            onRemoveCustom={removeCustom}
           />
+
+          {atCap && (
+            <Text variant="label" color={Colors.textTertiary} style={styles.capNote}>
+              {MAX_HABITS} is the ceiling — consistency drops as the list grows. swap, don't stack.
+            </Text>
+          )}
 
           <Text variant="label" style={styles.micro}>
             swap any of these after your first 21-day review. the goal isn't the perfect stack — it's the one you'll actually run.
@@ -222,7 +313,11 @@ export default function HabitsScreen() {
         </View>
 
         <Button
-          label={isValid ? 'next' : `pick ${TOTAL_TARGET - total} more`}
+          label={
+            isValid
+              ? 'next'
+              : `pick ${MIN_HABITS - total} more`
+          }
           onPress={handleNext}
           disabled={!isValid}
           style={styles.button}
@@ -244,20 +339,39 @@ function ExplainLine({ heading, body }: { heading: string; body: string }) {
 function HabitGroup({
   title,
   hint,
+  dayPhase,
   options,
   selected,
+  renames,
+  customs,
   expandedId,
+  renamingId,
+  atCap,
   onExpand,
   onToggle,
+  onRename,
+  onStartRename,
+  onAddCustom,
+  onRemoveCustom,
 }: {
   title: string;
   hint: string;
+  dayPhase: DayPhase;
   options: HabitOption[];
   selected: Set<string>;
+  renames: Record<string, string>;
+  customs: LocalCustom[];
   expandedId: string | null;
+  renamingId: string | null;
+  atCap: boolean;
   onExpand: (id: string | null) => void;
   onToggle: (opt: HabitOption) => void;
+  onRename: (id: string, name: string) => void;
+  onStartRename: (id: string | null) => void;
+  onAddCustom: (dayPhase: DayPhase, label: string, reason: string) => boolean;
+  onRemoveCustom: (key: string) => void;
 }) {
+  const groupCustoms = customs.filter((c) => c.dayPhase === dayPhase);
   return (
     <View style={styles.group}>
       <View style={styles.groupHeader}>
@@ -268,6 +382,9 @@ function HabitGroup({
         {options.map((opt) => {
           const isSelected = selected.has(opt.id);
           const isExpanded = expandedId === opt.id;
+          // deselecting a tile mid-rename cancels the rename
+          const isRenaming = renamingId === opt.id && isSelected;
+          const displayLabel = renames[opt.id] ?? opt.label;
           return (
             <View key={opt.id} style={[styles.tile, isSelected && styles.tileSelected]}>
               <TouchableOpacity
@@ -281,20 +398,54 @@ function HabitGroup({
                     variant="body"
                     color={isSelected ? Colors.tealText : Colors.textSecondary}
                   >
-                    {opt.label}
+                    {displayLabel}
                   </Text>
                 </View>
                 <View style={[styles.check, isSelected && styles.checkOn]} />
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onExpand(isExpanded ? null : opt.id)}
-                accessibilityRole="button"
-                accessibilityLabel={isExpanded ? 'hide reasoning' : 'show reasoning'}
-              >
-                <Text variant="label" color={Colors.textTertiary} style={styles.whyLink}>
-                  {isExpanded ? 'hide why' : 'why this one?'}
-                </Text>
-              </TouchableOpacity>
+              {isRenaming ? (
+                <TextInput
+                  style={styles.renameInput}
+                  defaultValue={renames[opt.id] ?? opt.label}
+                  autoFocus
+                  returnKeyType="done"
+                  maxLength={60}
+                  onEndEditing={(e) => {
+                    onRename(opt.id, e.nativeEvent.text);
+                    onStartRename(null);
+                  }}
+                  onSubmitEditing={(e) => {
+                    onRename(opt.id, e.nativeEvent.text);
+                    onStartRename(null);
+                  }}
+                  accessibilityLabel={`rename ${opt.label}`}
+                />
+              ) : (
+                <View style={styles.tileLinks}>
+                  <TouchableOpacity
+                    onPress={() => onExpand(isExpanded ? null : opt.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={isExpanded ? 'hide reasoning' : 'show reasoning'}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text variant="label" color={Colors.textTertiary} style={styles.whyLink}>
+                      {isExpanded ? 'hide why' : 'why this one?'}
+                    </Text>
+                  </TouchableOpacity>
+                  {isSelected && (
+                    <TouchableOpacity
+                      onPress={() => onStartRename(opt.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`rename ${displayLabel}`}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text variant="label" color={Colors.textTertiary} style={styles.whyLink}>
+                        rename
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
               {isExpanded && (
                 <Text variant="label" color={Colors.textSecondary} style={styles.whyBody}>
                   {opt.why}
@@ -303,6 +454,127 @@ function HabitGroup({
             </View>
           );
         })}
+
+        {groupCustoms.map((custom) => (
+          <View key={custom.key} style={[styles.tile, styles.tileSelected]}>
+            <View style={styles.tileHeader}>
+              <View style={styles.tileText}>
+                <Text variant="body" color={Colors.tealText}>{custom.label}</Text>
+                {!!custom.reason && (
+                  <Text variant="label" color={Colors.textTertiary} style={styles.customReason}>
+                    {custom.reason}
+                  </Text>
+                )}
+              </View>
+              <View style={[styles.check, styles.checkOn]} />
+            </View>
+            <TouchableOpacity
+              onPress={() => onRemoveCustom(custom.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`remove ${custom.label}`}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text variant="label" color={Colors.textTertiary} style={styles.whyLink}>
+                remove
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        <AddCustomTile dayPhase={dayPhase} disabled={atCap} onAdd={onAddCustom} />
+      </View>
+    </View>
+  );
+}
+
+function AddCustomTile({
+  dayPhase,
+  disabled,
+  onAdd,
+}: {
+  dayPhase: DayPhase;
+  disabled: boolean;
+  onAdd: (dayPhase: DayPhase, label: string, reason: string) => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState('');
+  const [reason, setReason] = useState('');
+
+  function handleAdd() {
+    if (!label.trim()) return;
+    // only clear + close if the add actually landed (it no-ops at the cap)
+    if (!onAdd(dayPhase, label, reason)) return;
+    setLabel('');
+    setReason('');
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <TouchableOpacity
+        style={[styles.tile, styles.addTile, disabled && styles.addTileDisabled]}
+        onPress={() => !disabled && setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="add your own habit"
+        disabled={disabled}
+      >
+        <Text variant="label" color={disabled ? Colors.textTertiary : Colors.tealText} style={styles.addLabel}>
+          + add your own
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[styles.tile, styles.tileSelected]}>
+      <TextInput
+        style={styles.renameInput}
+        value={label}
+        onChangeText={setLabel}
+        placeholder="the habit — small and daily"
+        placeholderTextColor={Colors.textTertiary}
+        autoFocus
+        maxLength={60}
+        returnKeyType="next"
+        accessibilityLabel="custom habit name"
+      />
+      <TextInput
+        style={styles.renameInput}
+        value={reason}
+        onChangeText={setReason}
+        placeholder="why does this matter to you? (optional)"
+        placeholderTextColor={Colors.textTertiary}
+        maxLength={120}
+        returnKeyType="done"
+        onSubmitEditing={handleAdd}
+        accessibilityLabel="why this habit matters"
+      />
+      {disabled && (
+        <Text variant="label" color={Colors.textTertiary} style={styles.capInlineNote}>
+          you're at 8 — remove one to add this.
+        </Text>
+      )}
+      <View style={styles.addActions}>
+        <TouchableOpacity
+          onPress={handleAdd}
+          accessibilityRole="button"
+          accessibilityLabel="add habit"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text variant="label" color={Colors.tealText} style={styles.addAction}>add</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            setOpen(false);
+            setLabel('');
+            setReason('');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="cancel adding habit"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text variant="label" color={Colors.textTertiary} style={styles.addAction}>cancel</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -348,8 +620,10 @@ const styles = StyleSheet.create({
     minHeight: 32,
   },
   tileText: { flex: 1, gap: 2 },
+  tileLinks: { flexDirection: 'row', gap: 16 },
   whyLink: { fontSize: 11, letterSpacing: 0.4 },
   whyBody: { fontSize: 12, lineHeight: 18, paddingTop: 4 },
+  customReason: { fontSize: 11, lineHeight: 15 },
   check: {
     width: 22,
     height: 22,
@@ -361,6 +635,26 @@ const styles = StyleSheet.create({
     borderColor: Colors.tealAction,
     backgroundColor: Colors.tealAction,
   },
+  // 16px minimum — anything smaller triggers iOS Safari auto-zoom on focus
+  renameInput: {
+    fontSize: 16,
+    color: Colors.textPrimary,
+    fontFamily: 'Outfit_300Light',
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.tealAction,
+    paddingVertical: 6,
+  },
+  addTile: {
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  addTileDisabled: { opacity: 0.4 },
+  addLabel: { fontSize: 13, letterSpacing: 0.4 },
+  addActions: { flexDirection: 'row', gap: 24, paddingTop: 4 },
+  capInlineNote: { fontSize: 11, lineHeight: 15 },
+  addAction: { fontSize: 12, letterSpacing: 0.4, lineHeight: 20 },
+  capNote: { fontSize: 12, lineHeight: 18, marginTop: -8 },
   micro: { lineHeight: 20, fontSize: 13 },
   button: { marginTop: 8 },
 });

@@ -39,17 +39,17 @@ export const CONCEPTS: Concept[] = [
   },
   {
     key: 'four-of-six-rule',
-    title: 'the 4-of-6 rule',
+    title: 'the rule of 4',
     definition:
-      "you're not meant to hit all six. four is present. that's the whole point — a day where you did enough is a day that counts.",
-    body: `The protocol is six habits, but the target is four. Hitting all six every day is a failure mode. It teaches your nervous system that anything less than perfect is a miss. Motivation collapses on day 8.\n\nFour of six is a present day. It's engineered slack. Some days movement won't happen. Some days journal won't. The stack has enough redundancy that the pattern holds even when individual habits don't.\n\nThe hard rule isn't "hit all six." It's "never miss twice." One skipped day is noise. Two consecutive skipped days is a pattern. The system is designed to make the second miss nearly impossible — not through guilt, but through design.`,
+      "you're not meant to hit every habit every day. four is present, whatever your total. a day where you did enough is a day that counts.",
+    body: `However many habits you picked, the target is four. Hitting every one every day is a failure mode. It teaches your nervous system that anything less than perfect is a miss. Motivation collapses on day 8.\n\nFour is a present day. It's engineered slack — and it stays four even if you add habits, because adding habits should never raise the bar for showing up. Some days movement won't happen. Some days journal won't. The stack has enough redundancy that the pattern holds even when individual habits don't.\n\nThe hard rule isn't "hit them all." It's "never miss twice." One skipped day is noise. Two consecutive skipped days is a pattern. The system is designed to make the second miss nearly impossible — not through guilt, but through design.`,
   },
   {
     key: 'twenty-one-day-cycle',
     title: 'the 21-day cycle',
     definition:
       "21 days isn't when a habit is 'formed' — it's when you stop tracking and see what stuck. that gap is the whole point.",
-    body: `The research on habit formation is misquoted constantly. It doesn't take 21 days to form a habit. What it does take is roughly 21 days of consistent practice before the neural pathway is efficient enough that you can stop deliberately tracking and see what your nervous system holds on to on its own.\n\nAt day 21, the protocol changes. You stop actively engaging with the six habits and observe which ones you naturally reach for. That's the signal. Anything that requires the tracker to remember is not yet automatic.\n\nAnything that runs without you thinking about it has moved from "protocol you follow" to "someone you're becoming." That's the transition worth waiting for.`,
+    body: `The research on habit formation is misquoted constantly. It doesn't take 21 days to form a habit. What it does take is roughly 21 days of consistent practice before the neural pathway is efficient enough that you can stop deliberately tracking and see what your nervous system holds on to on its own.\n\nAt day 21, the protocol changes. You stop actively engaging with your habits and observe which ones you naturally reach for. That's the signal. Anything that requires the tracker to remember is not yet automatic.\n\nAnything that runs without you thinking about it has moved from "protocol you follow" to "someone you're becoming." That's the transition worth waiting for.`,
   },
   {
     key: 'north-star-vs-habit',

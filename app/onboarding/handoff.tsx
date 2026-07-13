@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 import PipIndicator from '@/components/ui/PipIndicator';
 import { storage } from '@/lib/storage';
 import { setUser, setOnboardingComplete } from '@/lib/storage';
-import { seedHabits } from '@/lib/habits';
+import { seedHabits, type CustomSeed } from '@/lib/habits';
 import { scheduleAllNotifications, requestPermissions } from '@/lib/notifications';
 import { formatDate, addMinutes, subtractHours } from '@/lib/dayBoundary';
 import { generatePersonalisedCopy } from '@/lib/personalisedCopy';
@@ -32,6 +32,28 @@ function loadSelectedHabits(): string[] {
   }
 }
 
+function loadHabitRenames(): Record<string, string> {
+  const raw = storage.getString('onboarding.habitRenames');
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function loadCustomHabits(): CustomSeed[] {
+  const raw = storage.getString('onboarding.customHabits');
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as CustomSeed[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 function loadCapstone(): Capstone | undefined {
   const goal = storage.getString('onboarding.capstone.goal');
   if (!goal) return undefined;
@@ -46,6 +68,9 @@ export default function HandoffScreen() {
   const bedtime = subtractHours(wakeTime, 8.5);
   const capstone = loadCapstone();
   const selectedHabits = loadSelectedHabits();
+  const habitRenames = loadHabitRenames();
+  const customHabits = loadCustomHabits();
+  const habitCount = selectedHabits.length + customHabits.length;
 
   async function handleReady() {
     const user: User = {
@@ -71,7 +96,7 @@ export default function HandoffScreen() {
     };
 
     setUser(user);
-    seedHabits(user, selectedHabits);
+    seedHabits(user, selectedHabits, habitRenames, customHabits);
 
     setOnboardingComplete();
 
@@ -108,13 +133,13 @@ export default function HandoffScreen() {
             {capstone && (
               <SummaryRow label="north star" value={capstone.goal} />
             )}
-            <SummaryRow label="6 habits picked" value={`hit 4 = present`} />
+            <SummaryRow label={`${habitCount} habits picked`} value={`hit 4 = present`} />
             <SummaryRow label="wind-down" value={`from ${formatTime(windDown)}`} />
             <SummaryRow label="cycle 1" value="21 days · review at day 21" />
           </View>
 
           <Text variant="label" color={Colors.textTertiary} style={styles.anchorNote}>
-            you're not meant to hit all 6 every day. four is present. the goal isn't perfection — it's showing up more often than not.
+            you're not meant to hit all of them every day. four is present. the goal isn't perfection — it's showing up more often than not.
           </Text>
 
           <Text variant="label" style={styles.bedNote}>
