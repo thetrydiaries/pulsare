@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-13 — Flexible habit picker: 4–8 habits, custom + rename at onboarding
+
+Dogfooding surfaced that the fixed 4+2=6 picker couldn't hold a real habit set. Loosened the picker and pushed back on the habit portfolio itself (removed step-goal double-tracking, coupled wake/bed into the sleep window, made time-gated habits recoverable). Live on production.
+
+- **Picker flexible** (`app/onboarding/habits.tsx`) — pick 4–8, suggest 6. Removed the hard phase split (was exactly 4 morning + 2 evening) and the auto-evict on cap. Ninth pick blocked with a "swap, don't stack" ceiling note. Min-4 / max-8 gating drives the Next button label.
+- **Add your own** — dashed "add your own" tile per phase group at onboarding, with name + optional "why does this matter to you" (`personalReason`). Seeds as a custom habit via extended `seedHabits(user, ids, renames, customs)`. Guards against malformed stored entries so a corrupt `onboarding.customHabits` can't permanently brick handoff.
+- **Rename at pick** — selected tiles get a rename link (north-star anchor → "track calories" right there). Persisted as `userLabel` via a `onboarding.habitRenames` map.
+- **Why lives on home** (`components/habits/HabitRow.tsx`) — quiet subtext line under every label (`personalReason ?? microExplanation`), so the reason surfaces where you tick, not just at onboarding.
+- **Copy** — wake ritual scores the ritual, not the clock ("woke late? run it anyway"); wind-down + bedtime get explicit 30-min grace; "4-of-6 rule" → "rule of 4" everywhere (picker, handoff, Learn concept) — present = 4 whatever the total. Restored "move the needle (30 min)" as a phase-1 option; "read fiction" → "read (10 min)" (fiction as the why, not the rule). `project-hour` completion ack added.
+- **Presence math untouched** — `PRESENCE_TARGET` stays 4 by design; adding habits never raises the bar to be present. Handoff summary + concepts copy made count-agnostic.
+- **Verified** — tsc clean (4 pre-existing platform-split errors only), full browser walk on live dev (min/max bounds, cap block, rename commit, custom-add with reason, storage keys, handoff seeding, home rows). qa-review blockers fixed: silent no-op adding at cap (form now stays open with inline note), unvalidated stored-JSON crash, tap-target hitSlop, long-label wrap, deselect-mid-rename cancel.
+
 ## 2026-07-12 — Brand correction v9: north star, wake ritual, pause/swap, cycle-paced copy
 
 Executed `pulsare_brand_correction_brief_v9_final.md` (sessions 1 scope) — corrects the brand drift from the 2026-07-10 ship. Live as `pulsare-v9`.
